@@ -1,0 +1,156 @@
+/**
+ * Permissions & Overrides Section - Controlled exceptions without rule breakage
+ */
+
+import React from 'react';
+import { EmployeeDetails, UpdateEmployeeDetailsRequest } from '@/types';
+import { SectionWrapper } from '@/components/EmployeeDetails/SectionWrapper';
+import './PermissionsSection.css';
+
+interface PermissionsSectionProps {
+  employee: EmployeeDetails;
+  onUpdate: (request: UpdateEmployeeDetailsRequest) => Promise<void>;
+  canEdit: boolean;
+  isExpanded: boolean;
+  onToggle: () => void;
+  onUnsavedChange: (hasChanges: boolean) => void;
+}
+
+export const PermissionsSection: React.FC<PermissionsSectionProps> = ({
+  employee,
+  onUpdate,
+  canEdit,
+  isExpanded,
+  onToggle,
+  onUnsavedChange,
+}) => {
+  const handlePermissionChange = async (field: string, value: string | boolean) => {
+    const update: UpdateEmployeeDetailsRequest = {
+      [field]: value,
+    };
+    await onUpdate(update);
+    onUnsavedChange(false);
+  };
+
+  const handleToggle = async (field: string, value: boolean) => {
+    const update: UpdateEmployeeDetailsRequest = {
+      [field]: value,
+    };
+    await onUpdate(update);
+    onUnsavedChange(false);
+  };
+
+  return (
+    <SectionWrapper
+      title="Permissions & Overrides"
+      icon="🔐"
+      isExpanded={isExpanded}
+      onToggle={onToggle}
+    >
+      <div className="permissions-content">
+        <div className="permissions-grid">
+          {canEdit ? (
+            <div className="form-field">
+              <label className="field-label">Attendance Override Permission</label>
+              <select
+                className="form-select"
+                value={employee.attendanceOverridePermission || 'none'}
+                onChange={(e) => handlePermissionChange('attendanceOverridePermission', e.target.value)}
+                disabled={!canEdit}
+              >
+                <option value="none">None</option>
+                <option value="manager">Manager</option>
+                <option value="hr_admin">HR/Admin</option>
+              </select>
+              <small className="field-hint">Who can override attendance for this employee</small>
+            </div>
+          ) : (
+            <div className="form-field">
+              <label className="field-label">Attendance Override Permission</label>
+              <div className="field-value read-only">
+                {employee.attendanceOverridePermission || 'none'}
+              </div>
+            </div>
+          )}
+
+          <div className="form-field toggle-field">
+            <label className="field-label">Task Status Override Permission</label>
+            {canEdit ? (
+              <label className="toggle-switch">
+                <input
+                  type="checkbox"
+                  checked={employee.taskStatusOverridePermission || false}
+                  onChange={(e) => handleToggle('taskStatusOverridePermission', e.target.checked)}
+                  disabled={!canEdit}
+                />
+                <span className="toggle-slider"></span>
+              </label>
+            ) : (
+              <div className="field-value read-only">
+                {employee.taskStatusOverridePermission ? 'Yes' : 'No'}
+              </div>
+            )}
+          </div>
+
+          <div className="form-field toggle-field">
+            <label className="field-label">Overtime Eligibility Override</label>
+            {canEdit ? (
+              <label className="toggle-switch">
+                <input
+                  type="checkbox"
+                  checked={employee.overtimeEligibilityOverride || false}
+                  onChange={(e) => handleToggle('overtimeEligibilityOverride', e.target.checked)}
+                  disabled={!canEdit}
+                />
+                <span className="toggle-slider"></span>
+              </label>
+            ) : (
+              <div className="field-value read-only">
+                {employee.overtimeEligibilityOverride ? 'Yes' : 'No'}
+              </div>
+            )}
+          </div>
+
+          <div className="form-field toggle-field">
+            <label className="field-label">Break Rule Override</label>
+            {canEdit ? (
+              <label className="toggle-switch">
+                <input
+                  type="checkbox"
+                  checked={employee.breakRuleOverride || false}
+                  onChange={(e) => handleToggle('breakRuleOverride', e.target.checked)}
+                  disabled={!canEdit}
+                />
+                <span className="toggle-slider"></span>
+              </label>
+            ) : (
+              <div className="field-value read-only">
+                {employee.breakRuleOverride ? 'Yes' : 'No'}
+              </div>
+            )}
+          </div>
+
+          <div className="form-field toggle-field">
+            <label className="field-label">Holiday Working Permission</label>
+            {canEdit ? (
+              <label className="toggle-switch">
+                <input
+                  type="checkbox"
+                  checked={employee.holidayWorkingPermission || false}
+                  onChange={(e) => handleToggle('holidayWorkingPermission', e.target.checked)}
+                  disabled={!canEdit}
+                />
+                <span className="toggle-slider"></span>
+              </label>
+            ) : (
+              <div className="field-value read-only">
+                {employee.holidayWorkingPermission ? 'Yes' : 'No'}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </SectionWrapper>
+  );
+};
+

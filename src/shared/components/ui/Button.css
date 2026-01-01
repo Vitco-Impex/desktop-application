@@ -1,0 +1,94 @@
+/**
+ * Button Styles - Minimal, compact design
+ */
+
+.btn {
+  font-family: var(--font-family);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  border: var(--border-width) solid var(--color-border);
+  background-color: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  transition: background-color var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
+  min-height: 28px;
+  padding: var(--spacing-xs) var(--spacing-md);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-xs);
+}
+
+.btn:focus {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Variants */
+.btn--primary {
+  background-color: var(--color-primary);
+  color: white;
+  border-color: var(--color-primary);
+}
+
+.btn--primary:hover:not(:disabled) {
+  background-color: var(--color-primary-hover);
+  border-color: var(--color-primary-hover);
+}
+
+.btn--secondary {
+  background-color: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  border-color: var(--color-border);
+}
+
+.btn--secondary:hover:not(:disabled) {
+  background-color: var(--color-bg-secondary);
+}
+
+.btn--danger {
+  background-color: var(--color-bg-primary);
+  color: var(--color-error);
+  border-color: var(--color-border);
+}
+
+.btn--danger:hover:not(:disabled) {
+  background-color: #fef2f2;
+  border-color: var(--color-error);
+}
+
+.btn--ghost {
+  background-color: transparent;
+  border-color: transparent;
+}
+
+.btn--ghost:hover:not(:disabled) {
+  background-color: var(--color-bg-secondary);
+}
+
+/* Sizes */
+.btn--sm {
+  font-size: var(--font-size-small);
+  min-height: 24px;
+  padding: var(--spacing-xs) var(--spacing-sm);
+}
+
+.btn--md {
+  min-height: 28px;
+  padding: var(--spacing-xs) var(--spacing-md);
+}
+
+.btn--lg {
+  min-height: 32px;
+  padding: var(--spacing-sm) var(--spacing-lg);
+}
+
+.btn--full-width {
+  width: 100%;
+}

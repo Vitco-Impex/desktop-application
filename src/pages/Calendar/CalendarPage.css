@@ -1,0 +1,16 @@
+.calendar-page {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.calendar-page-error {
+  padding: var(--spacing-sm) var(--spacing-md);
+  background-color: var(--color-error-light);
+  color: var(--color-error);
+  font-size: var(--font-size-sm);
+  text-align: center;
+}
+

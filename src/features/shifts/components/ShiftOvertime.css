@@ -1,0 +1,132 @@
+.shift-overtime {
+  padding: var(--spacing-md);
+}
+
+.shift-overtime-header {
+  margin-bottom: var(--spacing-lg);
+}
+
+.shift-overtime-title {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  margin: 0 0 var(--spacing-xs) 0;
+}
+
+.shift-overtime-subtitle {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+.shift-overtime-loading,
+.shift-overtime-error {
+  padding: var(--spacing-lg);
+  text-align: center;
+  color: var(--color-text-secondary);
+}
+
+.shift-overtime-error {
+  color: var(--color-error);
+}
+
+.shift-overtime-error-message {
+  padding: var(--spacing-sm) var(--spacing-md);
+  background-color: var(--color-error-light);
+  color: var(--color-error);
+  border-radius: var(--border-radius-sm);
+  margin-bottom: var(--spacing-md);
+  font-size: var(--font-size-sm);
+}
+
+.shift-overtime-success-message {
+  padding: var(--spacing-sm) var(--spacing-md);
+  background-color: var(--color-success-light);
+  color: var(--color-success);
+  border-radius: var(--border-radius-sm);
+  margin-bottom: var(--spacing-md);
+  font-size: var(--font-size-sm);
+}
+
+.shift-overtime-sections {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-lg);
+}
+
+.shift-overtime-section {
+  padding: var(--spacing-md);
+}
+
+.shift-overtime-section-header {
+  margin-bottom: var(--spacing-md);
+  padding-bottom: var(--spacing-sm);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.shift-overtime-section-header h4 {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+.shift-overtime-section-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.shift-overtime-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+.shift-overtime-field label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+}
+
+.shift-overtime-field label input[type="checkbox"] {
+  margin-right: var(--spacing-xs);
+  cursor: pointer;
+}
+
+.shift-overtime-field label input[type="checkbox"] + span {
+  cursor: pointer;
+}
+
+.shift-overtime-field small {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  font-style: italic;
+}
+
+.shift-overtime-field select {
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-sm);
+  font-size: var(--font-size-sm);
+  background-color: var(--color-background);
+  color: var(--color-text-primary);
+  cursor: pointer;
+}
+
+.shift-overtime-field select:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+.shift-overtime-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--spacing-sm);
+  padding-top: var(--spacing-md);
+  border-top: 1px solid var(--color-border);
+}

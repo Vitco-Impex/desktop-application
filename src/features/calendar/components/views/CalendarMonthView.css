@@ -1,0 +1,105 @@
+.calendar-month-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: auto;
+}
+.calendar-month-view-day.hovered {
+  background-color: rgba(59, 130, 246, 0.08); /* subtle blue */
+  border: 1px solid rgba(59, 130, 246, 0.4);
+  transition: background-color 0.15s ease, border 0.15s ease;
+}
+
+.calendar-month-view-day.today.hovered {
+  background-color: rgba(59, 130, 246, 0.15);
+}
+
+
+.calendar-month-view-header {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  border-bottom: 2px solid var(--color-border);
+  background-color: var(--color-bg-primary);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.calendar-month-view-weekday {
+  padding: var(--spacing-sm);
+  text-align: center;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  border-right: 1px solid var(--color-border);
+}
+
+.calendar-month-view-weekday:last-child {
+  border-right: none;
+}
+
+.calendar-month-view-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  flex: 1;
+  background-color: var(--color-bg-primary);
+}
+
+.calendar-month-view-day {
+  min-height: 100px;
+  border-right: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
+  padding: var(--spacing-xs);
+  background-color: var(--color-bg-primary);
+}
+
+.calendar-month-view-day.other-month {
+  background-color: var(--color-bg-secondary);
+  color: var(--color-text-tertiary);
+}
+
+.calendar-month-view-day.today {
+  background-color: rgba(37, 99, 235, 0.1);
+  border: 2px solid var(--color-primary);
+}
+
+.calendar-month-view-day-number {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  margin-bottom: var(--spacing-xs);
+}
+
+.calendar-month-view-day-events {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.calendar-month-view-event-indicator {
+  font-size: 10px;
+  padding: 2px var(--spacing-xs);
+  background-color: var(--color-primary);
+  color: white;
+  border-radius: 2px;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.calendar-month-view-event-indicator:hover {
+  opacity: 0.9;
+}
+
+.calendar-month-view-more-indicator {
+  font-size: 10px;
+  color: var(--color-text-secondary);
+  padding: 2px var(--spacing-xs);
+  cursor: pointer;
+}
+
+.calendar-month-view-more-indicator:hover {
+  color: var(--color-primary);
+}
+

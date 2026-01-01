@@ -1,0 +1,80 @@
+.system-audit-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.system-audit-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: var(--spacing-lg);
+}
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+.field-label {
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+}
+
+.field-value {
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+}
+
+.field-value.read-only {
+  color: var(--color-text-tertiary);
+  background: var(--color-bg-tertiary);
+}
+
+.audit-log-section {
+  margin-top: var(--spacing-lg);
+  padding-top: var(--spacing-lg);
+  border-top: 1px solid var(--color-border);
+}
+
+.audit-log-title {
+  font-size: 16px;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  margin-bottom: var(--spacing-md);
+}
+
+.audit-log-table {
+  overflow-x: auto;
+}
+
+.audit-log-table table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.audit-log-table th,
+.audit-log-table td {
+  padding: var(--spacing-sm) var(--spacing-md);
+  text-align: left;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.audit-log-table th {
+  background: var(--color-bg-secondary);
+  font-weight: var(--font-weight-medium);
+  font-size: var(--font-size-small);
+  color: var(--color-text-secondary);
+}
+
+.audit-log-table td {
+  font-size: var(--font-size-small);
+  color: var(--color-text-primary);
+}
+

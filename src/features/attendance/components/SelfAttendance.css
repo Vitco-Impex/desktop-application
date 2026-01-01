@@ -1,0 +1,257 @@
+/**
+ * Self Attendance Styles
+ * Compact, information-dense design
+ */
+
+.self-attendance {
+  background: var(--color-bg-primary);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--border-radius);
+  padding: var(--spacing-2xl);
+  margin-bottom: var(--spacing-2xl);
+}
+
+.self-attendance-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: var(--spacing-xl);
+  padding-bottom: var(--spacing-xl);
+  border-bottom: var(--border-width) solid var(--color-border-light);
+}
+
+.self-attendance-title {
+  font-size: 16px;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  margin: 0 0 var(--spacing-xs) 0;
+}
+
+.self-attendance-date {
+  font-size: var(--font-size-small);
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+.self-attendance-status {
+  padding: var(--spacing-sm) var(--spacing-lg);
+  border-radius: var(--border-radius);
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-medium);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.self-attendance-status.status-not-started {
+  background-color: var(--color-bg-tertiary);
+  color: var(--color-text-tertiary);
+}
+
+.self-attendance-status.status-checked-in {
+  background-color: #dbeafe;
+  color: #1e40af;
+}
+
+.self-attendance-status.status-checked-out {
+  background-color: #d1fae5;
+  color: #065f46;
+}
+
+.self-attendance-success {
+  background-color: #d1fae5;
+  color: #065f46;
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  border-left: 4px solid #10b981;
+}
+
+.self-attendance-error {
+  background-color: #fee2e2;
+  color: #991b1b;
+  padding: var(--spacing-md);
+  border-radius: var(--border-radius);
+  margin-bottom: var(--spacing-lg);
+  font-size: var(--font-size-small);
+  line-height: 1.5;
+  border-left: 3px solid #dc2626;
+}
+
+.self-attendance-wifi {
+  margin-bottom: var(--spacing-lg);
+  padding: var(--spacing-md);
+  background-color: var(--color-bg-secondary);
+  border-radius: var(--border-radius);
+  border: var(--border-width) solid var(--color-border-light);
+}
+
+.wifi-info-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-xs);
+}
+
+.wifi-info {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  flex: 1;
+}
+
+.wifi-refresh-btn {
+  background: none;
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  cursor: pointer;
+  font-size: 16px;
+  color: var(--color-text-secondary);
+  transition: all var(--transition-fast);
+  min-width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.wifi-refresh-btn:hover:not(:disabled) {
+  background-color: var(--color-bg-tertiary);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.wifi-refresh-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.wifi-refresh-btn:active:not(:disabled) {
+  transform: rotate(180deg);
+  transition: transform 0.3s ease;
+}
+
+.wifi-label {
+  font-size: var(--font-size-small);
+  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-medium);
+}
+
+.wifi-name {
+  font-size: var(--font-size-small);
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-medium);
+  font-family: 'Courier New', monospace;
+}
+
+.wifi-error {
+  margin-top: var(--spacing-xs);
+  padding: var(--spacing-sm) var(--spacing-md);
+  background-color: #fee2e2;
+  color: #991b1b;
+  border-radius: var(--border-radius);
+  font-size: var(--font-size-small);
+}
+
+.wifi-success {
+  margin-top: var(--spacing-xs);
+  padding: var(--spacing-sm) var(--spacing-md);
+  background-color: #d1fae5;
+  color: #065f46;
+  border-radius: var(--border-radius);
+  font-size: var(--font-size-small);
+}
+
+.self-attendance-details {
+  margin-bottom: var(--spacing-xl);
+}
+
+.self-attendance-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.self-attendance-table td {
+  padding: var(--spacing-sm) 0;
+  border: none;
+}
+
+.self-attendance-table .detail-label {
+  font-size: var(--font-size-base);
+  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-medium);
+  width: 140px;
+}
+
+.self-attendance-table .detail-value {
+  font-size: var(--font-size-base);
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-normal);
+  font-family: 'Courier New', monospace;
+}
+
+.self-attendance-actions {
+  display: flex;
+  gap: var(--spacing-md);
+  padding-top: var(--spacing-xl);
+  border-top: var(--border-width) solid var(--color-border-light);
+}
+
+.btn-check-in,
+.btn-check-out {
+  flex: 1;
+  padding: var(--spacing-md) var(--spacing-lg);
+  border: none;
+  border-radius: var(--border-radius);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+  min-height: 32px;
+}
+
+.btn-check-in {
+  background-color: var(--color-primary);
+  color: white;
+}
+
+.btn-check-in:hover:not(:disabled) {
+  background-color: var(--color-primary-hover);
+}
+
+.btn-check-out {
+  background-color: var(--color-success);
+  color: white;
+}
+
+.btn-check-out:hover:not(:disabled) {
+  background-color: #047857;
+}
+
+.btn-check-in:disabled,
+.btn-check-out:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.self-attendance-info {
+  padding: var(--spacing-md);
+  background-color: var(--color-bg-secondary);
+  border-left: 3px solid var(--color-text-tertiary);
+  border-radius: var(--border-radius);
+  margin-top: var(--spacing-xl);
+}
+
+.self-attendance-info p {
+  margin: 0;
+  font-size: var(--font-size-small);
+  color: var(--color-text-secondary);
+}
+
+.self-attendance-loading {
+  text-align: center;
+  padding: var(--spacing-3xl);
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-base);
+}
+

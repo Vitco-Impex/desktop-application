@@ -1,0 +1,112 @@
+.calendar-day-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: auto;
+}
+
+.calendar-day-view-header {
+  display: flex;
+  border-bottom: 2px solid var(--color-border);
+  background-color: var(--color-bg-primary);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.calendar-day-view-time-column {
+  width: 60px;
+  min-width: 60px;
+  border-right: 1px solid var(--color-border);
+}
+
+.calendar-day-view-day-header {
+  flex: 1;
+  padding: var(--spacing-md);
+  text-align: center;
+}
+
+.calendar-day-view-day-name {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.calendar-day-view-body {
+  display: flex;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.calendar-day-view-day-column {
+  flex: 1;
+  position: relative;
+  min-height: 1440px; /* 24 hours * 60 minutes */
+}
+
+.calendar-day-view-hour {
+  height: 60px;
+  padding: var(--spacing-xs);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  text-align: right;
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.calendar-day-view-hour-slot {
+  height: 60px;
+  border-bottom: 1px solid var(--color-border-light);
+  transition: background-color 0.15s;
+}
+
+.calendar-day-view-hour-slot.drag-hover-valid {
+  background-color: rgba(37, 99, 235, 0.1);
+}
+
+.calendar-day-view-hour-slot.drag-hover-invalid {
+  background-color: rgba(220, 38, 38, 0.1);
+  cursor: not-allowed;
+}
+
+.calendar-day-view-event {
+  position: absolute;
+  background-color: var(--color-primary);
+  color: white;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--border-radius);
+  cursor: grab;
+  overflow: hidden;
+  z-index: 1;
+  min-height: 40px;
+  margin: 0 1px; /* Small gap between columns */
+  box-sizing: border-box;
+  transition: box-shadow 0.2s, opacity 0.2s;
+  user-select: none;
+}
+
+.calendar-day-view-event:hover:not(.dragging) {
+  opacity: 0.9;
+  z-index: 10;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.calendar-day-view-event.dragging {
+  cursor: grabbing !important;
+  opacity: 0.5;
+  z-index: 1000;
+}
+
+.calendar-day-view-event-title {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.calendar-day-view-event-time {
+  font-size: var(--font-size-xs);
+  opacity: 0.9;
+  margin-top: var(--spacing-xs);
+}
+

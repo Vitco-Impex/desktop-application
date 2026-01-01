@@ -1,0 +1,185 @@
+/**
+ * Shift Rules Styles
+ * Minimal, compact design with collapsible sections
+ */
+
+.shift-rules {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-lg);
+}
+
+.shift-rules-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding-bottom: var(--spacing-lg);
+  border-bottom: var(--border-width) solid var(--color-border-light);
+}
+
+.shift-rules-title {
+  font-size: 18px;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  margin: 0 0 var(--spacing-xs) 0;
+}
+
+.shift-rules-subtitle {
+  font-size: var(--font-size-small);
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+.shift-rules-error-message {
+  padding: var(--spacing-md);
+  background-color: #fee2e2;
+  color: #991b1b;
+  border-radius: var(--border-radius);
+  font-size: var(--font-size-small);
+  border-left: 3px solid #dc2626;
+}
+
+.shift-rules-success-message {
+  padding: var(--spacing-md);
+  background-color: #d1fae5;
+  color: #065f46;
+  border-radius: var(--border-radius);
+  font-size: var(--font-size-small);
+  border-left: 3px solid #10b981;
+}
+
+.shift-rules-sections {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.shift-rules-section {
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--border-radius);
+  background: var(--color-bg-primary);
+  overflow: hidden;
+}
+
+.shift-rules-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-md);
+  background: var(--color-bg-secondary);
+  cursor: pointer;
+  user-select: none;
+  transition: background-color var(--transition-fast);
+}
+
+.shift-rules-section-header:hover {
+  background: var(--color-bg-tertiary);
+}
+
+.shift-rules-section-header h4 {
+  margin: 0;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.shift-rules-toggle {
+  font-size: 20px;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-secondary);
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--border-radius);
+  background: var(--color-bg-primary);
+}
+
+.shift-rules-section-content {
+  padding: var(--spacing-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.shift-rules-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+.shift-rules-field label {
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+}
+
+.shift-rules-field input[type="number"],
+.shift-rules-field input[type="time"],
+.shift-rules-field select {
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--border-radius);
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-small);
+  font-family: inherit;
+  max-width: 300px;
+}
+
+.shift-rules-field input:focus,
+.shift-rules-field select:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+.shift-rules-field small {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  font-style: italic;
+}
+
+.shift-rules-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  cursor: pointer;
+  font-weight: var(--font-weight-normal);
+}
+
+.shift-rules-checkbox-label input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  margin: 0;
+}
+
+.shift-rules-footer {
+  padding-top: var(--spacing-lg);
+  border-top: var(--border-width) solid var(--color-border-light);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  align-items: flex-start;
+}
+
+.shift-rules-note {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  font-style: italic;
+  margin: 0;
+}
+
+.shift-rules-loading,
+.shift-rules-error {
+  padding: var(--spacing-xl);
+  text-align: center;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-small);
+}
+
+.shift-rules-error {
+  color: var(--color-error);
+}

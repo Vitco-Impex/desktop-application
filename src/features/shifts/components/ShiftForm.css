@@ -1,0 +1,18 @@
+.shift-form { padding: var(--spacing-lg); background: var(--color-bg-primary); border-radius: var(--border-radius); }
+.shift-form-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-lg); padding-bottom: var(--spacing-md); border-bottom: var(--border-width) solid var(--color-border-light); }
+.shift-form-title { margin: 0; font-size: 16px; font-weight: var(--font-weight-semibold); }
+.shift-form-close { padding: var(--spacing-xs); border: none; background: none; font-size: 24px; cursor: pointer; color: var(--color-text-secondary); line-height: 1; }
+.shift-form-close:hover { color: var(--color-text-primary); }
+.shift-form-error { padding: var(--spacing-md); background: #fee2e2; color: #991b1b; border-radius: var(--border-radius); margin-bottom: var(--spacing-lg); font-size: var(--font-size-small); border-left: 3px solid #dc2626; }
+.shift-form-content { display: flex; flex-direction: column; gap: var(--spacing-lg); }
+.shift-form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--spacing-md); }
+.shift-form-field { display: flex; flex-direction: column; gap: var(--spacing-xs); }
+.shift-form-field label { font-size: var(--font-size-small); font-weight: var(--font-weight-medium); color: var(--color-text-primary); }
+.shift-form-field input, .shift-form-field select { padding: var(--spacing-xs) var(--spacing-sm); border: var(--border-width) solid var(--color-border); border-radius: var(--border-radius); background: var(--color-bg-primary); color: var(--color-text-primary); font-size: var(--font-size-small); }
+.shift-form-field input:focus, .shift-form-field select:focus { outline: none; border-color: var(--color-primary); }
+.shift-form-field small { font-size: var(--font-size-xs); color: var(--color-text-secondary); }
+.shift-form-days { display: flex; gap: var(--spacing-sm); flex-wrap: wrap; }
+.shift-form-day-checkbox { display: flex; align-items: center; gap: var(--spacing-xs); cursor: pointer; }
+.shift-form-day-checkbox input[type="checkbox"] { cursor: pointer; }
+.shift-form-actions { display: flex; gap: var(--spacing-md); justify-content: flex-end; padding-top: var(--spacing-lg); border-top: var(--border-width) solid var(--color-border-light); }
+

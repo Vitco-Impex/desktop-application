@@ -1,0 +1,102 @@
+/**
+ * Shift Management Styles
+ */
+
+.shift-management {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-lg);
+}
+
+.shift-management-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding-bottom: var(--spacing-lg);
+  border-bottom: var(--border-width) solid var(--color-border-light);
+}
+
+.shift-management-title {
+  font-size: 18px;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  margin: 0 0 var(--spacing-xs) 0;
+}
+
+.shift-management-subtitle {
+  font-size: var(--font-size-small);
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+.shift-management-tabs {
+  display: flex;
+  gap: var(--spacing-xs);
+  border-bottom: var(--border-width) solid var(--color-border-light);
+  overflow-x: auto;
+}
+
+.shift-management-tab {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-sm) var(--spacing-md);
+  border: none;
+  background: none;
+  border-bottom: 2px solid transparent;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all var(--transition-fast);
+}
+
+.shift-management-tab:hover {
+  color: var(--color-text-primary);
+  background-color: var(--color-bg-secondary);
+}
+
+.shift-management-tab.active {
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
+}
+
+.shift-tab-icon {
+  font-size: 16px;
+}
+
+.shift-tab-label {
+  font-size: var(--font-size-small);
+}
+
+.shift-management-content {
+  flex: 1;
+  min-height: 0;
+}
+
+.shift-management-message {
+  padding: var(--spacing-xl);
+  text-align: center;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-small);
+}
+
+.shift-management-message p {
+  margin: var(--spacing-xs) 0;
+}
+
+.shift-management-hint {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+  font-style: italic;
+}
+
+.shift-management-error {
+  padding: var(--spacing-xl);
+  text-align: center;
+  color: var(--color-error);
+  font-size: var(--font-size-base);
+}
+

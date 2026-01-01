@@ -1,0 +1,118 @@
+{
+  "name": "hrms-desktop",
+  "version": "1.4.0",
+  "description": "HRMS Desktop Application",
+  "main": "dist-electron/main.js",
+  "author": {
+    "name": "Pioneer Ventures",
+    "email": "info@pioneer.com"
+  },
+  "build": {
+    "appId": "com.hrms.desktop",
+    "productName": "HRMS Desktop",
+    "copyright": "Copyright © 2025 HRMS",
+    "directories": {
+      "buildResources": "build",
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "public/assets/logo.png",
+        "to": "assets/logo.png"
+      }
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "public/assets/logo.ico",
+      "artifactName": "${productName}-${version}-${arch}.${ext}",
+      "forceCodeSigning": false,
+      "verifyUpdateCodeSignature": false
+    },
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "icon": "public/assets/logo.png",
+      "category": "public.app-category.business",
+      "artifactName": "${productName}-${version}-${arch}.${ext}",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "installerIcon": "public/assets/logo.ico",
+      "uninstallerIcon": "public/assets/logo.ico",
+      "installerHeaderIcon": "public/assets/logo.ico",
+      "warningsAsErrors": false
+    },
+    "dmg": {
+      "title": "${productName} ${version}",
+      "icon": "public/assets/logo.png"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "Pioneer-ventures",
+      "repo": "desktop-application"
+    }
+  },
+  "scripts": {
+    "predev": "npm run build:electron",
+    "dev": "concurrently \"npm run dev:vite\" \"npm run dev:electron\"",
+    "dev:vite": "vite",
+    "dev:electron": "wait-on http://localhost:5173 && electron .",
+    "build": "npm run build:vite && npm run build:electron",
+    "build:vite": "vite build",
+    "build:electron": "tsc -p electron/tsconfig.json",
+    "build:win": "npm run build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win",
+    "build:mac": "npm run build && electron-builder --mac",
+    "build:all": "npm run build && electron-builder --win --mac",
+    "publish:win": "npm run build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win --publish always",
+    "publish:mac": "npm run build && electron-builder --mac --publish always",
+    "publish:all": "npm run build && electron-builder --win --mac --publish always",
+    "preview": "vite preview",
+    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0"
+  },
+  "dependencies": {
+    "axios": "^1.6.2",
+    "electron-updater": "^6.6.2",
+    "marked": "^17.0.1",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-markdown": "^10.1.0",
+    "react-router-dom": "^6.20.0",
+    "socket.io-client": "^4.8.3",
+    "zustand": "^4.4.7"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.5",
+    "@types/react": "^18.2.43",
+    "@types/react-dom": "^18.2.17",
+    "@typescript-eslint/eslint-plugin": "^6.14.0",
+    "@typescript-eslint/parser": "^6.14.0",
+    "@vitejs/plugin-react": "^4.2.1",
+    "concurrently": "^8.2.2",
+    "cross-env": "^10.1.0",
+    "dotenv-cli": "^11.0.0",
+    "electron": "^28.0.0",
+    "electron-builder": "^26.0.12",
+    "eslint": "^8.55.0",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "eslint-plugin-react-refresh": "^0.4.5",
+    "terser": "^5.44.1",
+    "typescript": "^5.3.3",
+    "vite": "^5.0.8",
+    "vite-plugin-electron": "^0.28.0",
+    "wait-on": "^7.2.0"
+  }
+}

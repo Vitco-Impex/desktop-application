@@ -1,0 +1,43 @@
+.dashboard-page {
+  max-width: 100%;
+}
+
+.dashboard-header {
+  margin-bottom: var(--spacing-lg);
+}
+
+.dashboard-header h2 {
+  font-size: 16px;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  margin-bottom: var(--spacing-xs);
+}
+
+.dashboard-subtitle {
+  font-size: var(--font-size-small);
+  color: var(--color-text-secondary);
+}
+
+.dashboard-content {
+  background-color: var(--color-bg-primary);
+  border: var(--border-width) solid var(--color-border);
+  padding: var(--spacing-lg);
+}
+
+.dashboard-card {
+  padding: 0;
+}
+
+.dashboard-card h3 {
+  font-size: 14px;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  margin-bottom: var(--spacing-md);
+}
+
+.dashboard-card p {
+  font-size: var(--font-size-base);
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+

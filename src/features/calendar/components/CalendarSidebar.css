@@ -1,0 +1,99 @@
+.calendar-sidebar {
+  width: 240px;
+  min-width: 240px;
+  background-color: var(--color-bg-primary);
+  border-right: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  transition: all 0.2s;
+}
+
+.calendar-sidebar--collapsed {
+  width: 32px;
+  min-width: 32px;
+}
+
+.calendar-sidebar-header {
+  padding: var(--spacing-md);
+  border-bottom: 1px solid var(--color-border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.calendar-sidebar-header h3 {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  margin: 0;
+}
+
+.calendar-sidebar-toggle {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: var(--spacing-xs);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.calendar-sidebar-toggle:hover {
+  color: var(--color-text-primary);
+}
+
+.calendar-sidebar-section {
+  padding: var(--spacing-md);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.calendar-sidebar-section:last-child {
+  border-bottom: none;
+}
+
+.calendar-sidebar-section-title {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--color-text-secondary);
+  margin-bottom: var(--spacing-sm);
+}
+
+.calendar-sidebar-date-input {
+  width: 100%;
+  margin-bottom: var(--spacing-sm);
+}
+
+.calendar-sidebar-view-selector {
+  display: flex;
+  gap: var(--spacing-xs);
+}
+
+.calendar-sidebar-view-btn {
+  flex: 1;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border: 1px solid var(--color-border);
+  background-color: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+  border-radius: var(--border-radius);
+  transition: all 0.2s;
+}
+
+.calendar-sidebar-view-btn:hover {
+  background-color: var(--color-bg-secondary);
+}
+
+.calendar-sidebar-view-btn.active {
+  background-color: var(--color-primary);
+  color: white;
+  border-color: var(--color-primary);
+}
+
+.calendar-sidebar-filters,
+.calendar-sidebar-legend {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+

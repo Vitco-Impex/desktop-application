@@ -1,0 +1,158 @@
+/**
+ * Attendance List Styles
+ * Compact, data-dense table design
+ */
+
+.attendance-list {
+  background: var(--color-bg-primary);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--border-radius);
+  padding: var(--spacing-2xl);
+}
+
+.attendance-list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-xl);
+  padding-bottom: var(--spacing-lg);
+  border-bottom: var(--border-width) solid var(--color-border-light);
+}
+
+.attendance-list-title {
+  font-size: 16px;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+.attendance-list-date-filter {
+  padding: var(--spacing-sm) var(--spacing-md);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--border-radius);
+  font-size: var(--font-size-base);
+  min-height: 28px;
+}
+
+.attendance-list-table-container {
+  overflow-x: auto;
+  margin-bottom: var(--spacing-lg);
+}
+
+.attendance-list-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-base);
+}
+
+.attendance-list-table thead {
+  background-color: var(--color-bg-tertiary);
+}
+
+.attendance-list-table th {
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-small);
+  color: var(--color-text-secondary);
+  text-align: left;
+  padding: var(--spacing-md) var(--spacing-lg);
+  border-bottom: var(--border-width) solid var(--color-border);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+
+.attendance-list-table td {
+  padding: var(--spacing-md) var(--spacing-lg);
+  border-bottom: var(--border-width) solid var(--color-border-light);
+  color: var(--color-text-primary);
+}
+
+.attendance-list-table tbody tr:hover {
+  background-color: var(--color-bg-secondary);
+}
+
+.attendance-list-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.name-cell {
+  font-weight: var(--font-weight-medium);
+}
+
+.role-cell {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-small);
+  text-transform: capitalize;
+}
+
+.department-cell {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-small);
+}
+
+.time-cell {
+  font-family: 'Courier New', monospace;
+  font-size: var(--font-size-base);
+  color: var(--color-text-primary);
+}
+
+.duration-cell {
+  font-family: 'Courier New', monospace;
+  font-size: var(--font-size-base);
+  color: var(--color-text-primary);
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 2px var(--spacing-sm);
+  border-radius: var(--border-radius);
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-medium);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.status-badge.status-not-started {
+  background-color: var(--color-bg-tertiary);
+  color: var(--color-text-tertiary);
+}
+
+.status-badge.status-checked-in {
+  background-color: #dbeafe;
+  color: #1e40af;
+}
+
+.status-badge.status-checked-out {
+  background-color: #d1fae5;
+  color: #065f46;
+}
+
+.attendance-list-summary {
+  display: flex;
+  gap: var(--spacing-xl);
+  padding-top: var(--spacing-lg);
+  border-top: var(--border-width) solid var(--color-border-light);
+  font-size: var(--font-size-small);
+  color: var(--color-text-secondary);
+}
+
+.attendance-list-empty {
+  text-align: center;
+  padding: var(--spacing-3xl);
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-base);
+}
+
+.attendance-list-loading,
+.attendance-list-error {
+  text-align: center;
+  padding: var(--spacing-3xl);
+  font-size: var(--font-size-base);
+}
+
+.attendance-list-error {
+  color: #991b1b;
+  background-color: #fee2e2;
+  border-radius: var(--border-radius);
+}
+

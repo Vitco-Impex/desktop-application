@@ -1,0 +1,110 @@
+/**
+ * System Logs Styles
+ */
+
+.system-logs {
+  width: 100%;
+}
+
+.logs-actions {
+  display: flex;
+  gap: var(--spacing-sm);
+  flex-wrap: wrap;
+}
+
+.btn-sm {
+  padding: var(--spacing-xs) var(--spacing-sm);
+  font-size: var(--font-size-small);
+}
+
+.logs-controls {
+  margin-bottom: var(--spacing-md);
+}
+
+.log-path-info {
+  margin-bottom: var(--spacing-md);
+  padding: var(--spacing-sm);
+  background: var(--color-bg-secondary);
+  border-radius: var(--border-radius);
+}
+
+.log-path-info code {
+  font-family: 'Courier New', monospace;
+  font-size: var(--font-size-small);
+  color: var(--color-text-primary);
+  word-break: break-all;
+}
+
+.logs-container {
+  border: var(--border-width) solid var(--color-border-light);
+  border-radius: var(--border-radius);
+  background: var(--color-bg-primary);
+  max-height: 500px;
+  overflow-y: auto;
+  font-family: 'Courier New', monospace;
+  font-size: var(--font-size-small);
+}
+
+.logs-empty {
+  padding: var(--spacing-3xl);
+  text-align: center;
+  color: var(--color-text-secondary);
+}
+
+.logs-empty-subtitle {
+  margin-top: var(--spacing-sm);
+  font-size: var(--font-size-small);
+  color: var(--color-text-tertiary);
+}
+
+.logs-empty-subtitle code {
+  font-family: 'Courier New', monospace;
+  background: var(--color-bg-secondary);
+  padding: 2px 6px;
+  border-radius: 3px;
+  word-break: break-all;
+}
+
+.logs-content {
+  padding: var(--spacing-sm);
+}
+
+.log-line {
+  padding: 2px 0;
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.log-line:last-child {
+  border-bottom: none;
+}
+
+.log-line code {
+  color: var(--color-text-primary);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.logs-instructions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.logs-instructions p {
+  margin: 0;
+  line-height: 1.6;
+}
+
+.logs-instructions code {
+  font-family: 'Courier New', monospace;
+  background: var(--color-bg-secondary);
+  padding: 2px 6px;
+  border-radius: 3px;
+  word-break: break-all;
+}
+
+.logs-instructions strong {
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-semibold);
+}
+

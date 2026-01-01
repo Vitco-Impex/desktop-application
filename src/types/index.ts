@@ -1,0 +1,236 @@
+/**
+ * Application Types
+ */
+
+export enum UserRole {
+  EMPLOYEE = 'employee',
+  MANAGER = 'manager',
+  HR = 'hr',
+  ADMIN = 'admin',
+}
+
+// Attendance enums
+export enum AttendanceSessionStatus {
+  NOT_STARTED = 'NOT_STARTED',
+  CHECKED_IN = 'CHECKED_IN',
+  CHECKED_OUT = 'CHECKED_OUT',
+}
+
+export enum AttendanceSource {
+  MOBILE = 'mobile',
+  WEB = 'web',
+  DESKTOP = 'desktop',
+}
+
+// Attendance interfaces
+export interface AttendanceRecord {
+  id: string;
+  employeeId: string;
+  date: string;
+  checkInTime: string;
+  checkOutTime?: string;
+  status: AttendanceSessionStatus;
+  source: AttendanceSource;
+  totalDuration?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AttendanceStatusResponse {
+  status: AttendanceSessionStatus;
+  today?: AttendanceRecord;
+  canCheckIn: boolean;
+  canCheckOut: boolean;
+}
+
+export interface CheckInRequest {
+  source: AttendanceSource;
+  location?: {
+    latitude?: number;
+    longitude?: number;
+    address?: string;
+  };
+  wifi?: {
+    ssid: string;
+    bssid?: string;
+  };
+  ethernet?: {
+    macAddress: string;
+  };
+  systemFingerprint?: string;
+}
+
+export interface CheckOutRequest {
+  source: AttendanceSource;
+  wifi?: {
+    ssid: string;
+    bssid?: string;
+  };
+  ethernet?: {
+    macAddress: string;
+  };
+  systemFingerprint?: string;
+  checkOutTime?: string; // ISO string - optional, for recovery check-outs at specific time
+}
+
+export interface AttendanceDashboardData {
+  checkedIn: Array<{
+    employeeId: string;
+    employeeName: string;
+    department?: string;
+    role?: string;
+    checkInTime: string;
+    status: AttendanceSessionStatus;
+  }>;
+  checkedOut: Array<{
+    employeeId: string;
+    employeeName: string;
+    department?: string;
+    role?: string;
+    checkInTime: string;
+    checkOutTime: string;
+    totalDuration: number;
+    status: AttendanceSessionStatus;
+  }>;
+  notStarted: Array<{
+    employeeId: string;
+    employeeName: string;
+    department?: string;
+    role?: string;
+  }>;
+  summary: {
+    totalEmployees: number;
+    checkedInCount: number;
+    checkedOutCount: number;
+    notStartedCount: number;
+  };
+}
+
+// Re-export shift types
+export * from './shift';
+
+// Employee Details enums and types
+export enum EmploymentType {
+  FULL_TIME = 'full_time',
+  PART_TIME = 'part_time',
+  CONTRACT = 'contract',
+}
+
+export enum AttendanceMode {
+  STRICT = 'strict',
+  FLEXIBLE = 'flexible',
+}
+
+export enum TaskVisibility {
+  PRIVATE = 'private',
+  TEAM = 'team',
+}
+
+export interface EmployeeDetails {
+  // Profile Summary
+  id: string;
+  employeeId?: string;
+  name: string;
+  email: string;
+  phoneNumber?: string;
+  profilePhoto?: string;
+  isActive: boolean;
+  
+  // Employment & Role
+  role: UserRole;
+  designation?: string;
+  department?: string;
+  reportingManager?: {
+    id: string;
+    name: string;
+    email: string;
+  };
+  employmentType?: EmploymentType;
+  dateOfJoining?: string;
+  
+  // Shift & Attendance
+  assignedShift?: {
+    id: string;
+    name: string;
+    code: string;
+    startTime: string;
+    endTime: string;
+  };
+  shiftAssignmentType?: 'permanent' | 'temporary' | 'rotational' | 'override';
+  shiftEffectiveFrom?: string;
+  shiftEffectiveTo?: string;
+  attendanceMode?: AttendanceMode;
+  allowManualAttendanceOverride?: boolean;
+  locationRestrictionOverride?: boolean;
+  deviceRestrictionOverride?: boolean;
+  
+  // Task & Work Preferences
+  defaultTaskVisibility?: TaskVisibility;
+  canReceiveTasksFrom?: UserRole[];
+  allowedTaskCreation?: 'self_only' | 'disabled';
+  preferredWorkingHours?: {
+    start?: string;
+    end?: string;
+  };
+  calendarVisibilityScope?: 'own_only' | 'team_view';
+  
+  // Permissions & Overrides
+  attendanceOverridePermission?: 'none' | 'manager' | 'hr_admin';
+  taskStatusOverridePermission?: boolean;
+  overtimeEligibilityOverride?: boolean;
+  breakRuleOverride?: boolean;
+  holidayWorkingPermission?: boolean;
+  
+  // System & Audit (read-only)
+  createdAt: string;
+  updatedAt: string;
+  lastLogin?: string;
+  lastAttendanceAction?: string;
+  lastTaskUpdate?: string;
+}
+
+export interface UpdateEmployeeDetailsRequest {
+  // Profile Summary
+  name?: string;
+  phoneNumber?: string;
+  profilePhoto?: string;
+  isActive?: boolean;
+  
+  // Employment & Role
+  role?: UserRole;
+  designation?: string;
+  department?: string;
+  reportingManagerId?: string;
+  employmentType?: EmploymentType;
+  dateOfJoining?: string;
+  
+  // Shift & Attendance
+  assignedShiftId?: string;
+  shiftAssignmentType?: 'permanent' | 'temporary' | 'rotational' | 'override';
+  shiftEffectiveFrom?: string;
+  shiftEffectiveTo?: string;
+  attendanceMode?: AttendanceMode;
+  allowManualAttendanceOverride?: boolean;
+  locationRestrictionOverride?: boolean;
+  deviceRestrictionOverride?: boolean;
+  
+  // Task & Work Preferences
+  defaultTaskVisibility?: TaskVisibility;
+  canReceiveTasksFrom?: UserRole[];
+  allowedTaskCreation?: 'self_only' | 'disabled';
+  preferredWorkingHours?: {
+    start?: string;
+    end?: string;
+  };
+  calendarVisibilityScope?: 'own_only' | 'team_view';
+  
+  // Permissions & Overrides
+  attendanceOverridePermission?: 'none' | 'manager' | 'hr_admin';
+  taskStatusOverridePermission?: boolean;
+  overtimeEligibilityOverride?: boolean;
+  breakRuleOverride?: boolean;
+  holidayWorkingPermission?: boolean;
+  
+  // Optional reason for audit
+  reason?: string;
+}

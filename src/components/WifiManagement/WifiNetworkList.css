@@ -1,0 +1,203 @@
+/**
+ * Wi-Fi Network List Styles
+ */
+
+.wifi-network-list {
+  width: 100%;
+}
+
+.wifi-network-list-empty {
+  text-align: center;
+  padding: var(--spacing-3xl);
+  color: var(--color-text-secondary);
+}
+
+.wifi-network-list-empty .empty-subtitle {
+  font-size: var(--font-size-small);
+  color: var(--color-text-tertiary);
+  margin-top: var(--spacing-sm);
+}
+
+.wifi-network-table-container {
+  overflow-x: auto;
+  border: var(--border-width) solid var(--color-border-light);
+  border-radius: var(--border-radius);
+}
+
+.wifi-network-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--color-bg-primary);
+}
+
+.wifi-network-table thead {
+  background: var(--color-bg-secondary);
+  border-bottom: var(--border-width) solid var(--color-border);
+}
+
+.wifi-network-table th {
+  padding: var(--spacing-md);
+  text-align: left;
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  white-space: nowrap;
+}
+
+.wifi-network-table tbody tr {
+  border-bottom: var(--border-width) solid var(--color-border-light);
+  transition: background-color var(--transition-fast);
+}
+
+.wifi-network-table tbody tr:hover {
+  background-color: var(--color-bg-secondary);
+}
+
+.wifi-network-table tbody tr.inactive {
+  opacity: 0.6;
+}
+
+.wifi-network-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.wifi-network-table td {
+  padding: var(--spacing-md);
+  font-size: var(--font-size-base);
+  color: var(--color-text-primary);
+  vertical-align: middle;
+}
+
+.ssid-cell {
+  font-weight: var(--font-weight-medium);
+}
+
+.ssid-content {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.ssid-name {
+  font-family: 'Courier New', monospace;
+  font-size: var(--font-size-base);
+}
+
+.bssid-cell {
+  font-family: 'Courier New', monospace;
+}
+
+.bssid-code {
+  font-size: var(--font-size-small);
+  background: var(--color-bg-tertiary);
+  padding: 2px 6px;
+  border-radius: 3px;
+  color: var(--color-text-primary);
+}
+
+.location-cell {
+  max-width: 200px;
+  word-wrap: break-word;
+}
+
+.status-cell {
+  white-space: nowrap;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: var(--font-weight-medium);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.status-badge.active {
+  background-color: #d1fae5;
+  color: #065f46;
+}
+
+.status-badge.inactive {
+  background-color: #fee2e2;
+  color: #991b1b;
+}
+
+.date-cell {
+  white-space: nowrap;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-small);
+}
+
+.actions-cell {
+  white-space: nowrap;
+}
+
+.action-buttons {
+  display: flex;
+  gap: var(--spacing-xs);
+  flex-wrap: wrap;
+}
+
+.btn-action {
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--border-radius);
+  font-size: 12px;
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+}
+
+.btn-action:hover:not(:disabled) {
+  background: var(--color-bg-secondary);
+  border-color: var(--color-border);
+}
+
+.btn-action:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-action.btn-edit:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.btn-action.btn-toggle:hover:not(:disabled) {
+  border-color: var(--color-warning, #f59e0b);
+  color: var(--color-warning, #f59e0b);
+}
+
+.btn-action.btn-delete:hover:not(:disabled) {
+  border-color: #dc2626;
+  color: #dc2626;
+}
+
+.text-muted {
+  color: var(--color-text-tertiary);
+  font-style: italic;
+}
+
+@media (max-width: 1024px) {
+  .wifi-network-table-container {
+    font-size: var(--font-size-small);
+  }
+
+  .wifi-network-table th,
+  .wifi-network-table td {
+    padding: var(--spacing-sm);
+  }
+
+  .action-buttons {
+    flex-direction: column;
+  }
+
+  .btn-action {
+    width: 100%;
+  }
+}
+

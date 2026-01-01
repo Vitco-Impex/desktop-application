@@ -1,0 +1,15 @@
+.app-layout {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background-color: var(--color-bg-secondary);
+}
+
+.app-main {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--spacing-lg);
+  background-color: var(--color-bg-secondary);
+  margin-top: 48px; /* Navbar height */
+}
+

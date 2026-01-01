@@ -1,0 +1,38 @@
+/**
+ * Card Styles - Minimal, compact design
+ */
+
+.card {
+  background-color: var(--color-bg-primary);
+  border-radius: var(--border-radius);
+}
+
+.card--default {
+  background-color: var(--color-bg-primary);
+}
+
+.card--bordered {
+  border: var(--border-width) solid var(--color-border);
+}
+
+.card--elevated {
+  border: var(--border-width) solid var(--color-border);
+  box-shadow: var(--shadow-sm);
+}
+
+.card--padding-none {
+  padding: 0;
+}
+
+.card--padding-sm {
+  padding: var(--spacing-md);
+}
+
+.card--padding-md {
+  padding: var(--spacing-lg);
+}
+
+.card--padding-lg {
+  padding: var(--spacing-xl);
+}
+

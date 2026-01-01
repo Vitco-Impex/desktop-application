@@ -1,0 +1,7 @@
+.calendar-layout {
+  display: flex;
+  width: 100%;
+  height: calc(100vh - var(--navbar-height, 44px));
+  overflow: hidden;
+}
+

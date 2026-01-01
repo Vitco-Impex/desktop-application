@@ -1,0 +1,200 @@
+/**
+ * Quick Add Task Panel Styles
+ */
+
+.quick-add-panel-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  z-index: 1000;
+  padding: 40px 20px;
+}
+
+.quick-add-panel {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  width: 100%;
+  max-width: 500px;
+  max-height: 90vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.quick-add-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid #e1e3e5;
+}
+
+.quick-add-panel-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #1a1d21;
+}
+
+.quick-add-panel-close {
+  background: none;
+  border: none;
+  font-size: 24px;
+  color: #6b7280;
+  cursor: pointer;
+  padding: 0;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: background-color 0.15s;
+}
+
+.quick-add-panel-close:hover {
+  background-color: #f0f1f2;
+  color: #1a1d21;
+}
+
+.quick-add-panel-body {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.quick-add-panel-error {
+  background-color: #fee2e2;
+  color: #dc2626;
+  padding: 10px 12px;
+  border-radius: 4px;
+  font-size: 13px;
+  border: 1px solid #fecaca;
+}
+
+.quick-add-panel-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.quick-add-panel-field label {
+  font-size: 12px;
+  font-weight: 500;
+  color: #4a4f56;
+}
+
+.quick-add-panel-field input,
+.quick-add-panel-field select {
+  padding: 8px 10px;
+  border: 1px solid #e1e3e5;
+  border-radius: 4px;
+  font-size: 13px;
+  font-family: inherit;
+  transition: border-color 0.15s;
+}
+
+.quick-add-panel-field input:focus,
+.quick-add-panel-field select:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
+}
+
+.quick-add-panel-field input:disabled,
+.quick-add-panel-field select:disabled {
+  background-color: #f8f9fa;
+  cursor: not-allowed;
+  color: #6b7280;
+}
+
+.quick-add-panel-field .required {
+  color: #dc2626;
+}
+
+.quick-add-panel-hint {
+  font-size: 11px;
+  color: #6b7280;
+  margin-top: 2px;
+}
+
+.quick-add-panel-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.quick-add-panel-advanced {
+  padding-top: 12px;
+  border-top: 1px solid #e9eaec;
+}
+
+.quick-add-panel-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 12px;
+  border-top: 1px solid #e9eaec;
+  margin-top: 4px;
+}
+
+.quick-add-panel-link {
+  background: none;
+  border: none;
+  color: #2563eb;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+}
+
+.quick-add-panel-link:hover {
+  color: #1d4ed8;
+}
+
+.quick-add-panel-buttons {
+  display: flex;
+  gap: 10px;
+}
+
+.quick-add-panel-buttons button {
+  padding: 8px 16px;
+  border: 1px solid #e1e3e5;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  background: white;
+  color: #1a1d21;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+
+.quick-add-panel-buttons button:hover:not(:disabled) {
+  background-color: #f8f9fa;
+  border-color: #d1d5db;
+}
+
+.quick-add-panel-buttons button.btn-primary {
+  background-color: #2563eb;
+  color: white;
+  border-color: #2563eb;
+}
+
+.quick-add-panel-buttons button.btn-primary:hover:not(:disabled) {
+  background-color: #1d4ed8;
+  border-color: #1d4ed8;
+}
+
+.quick-add-panel-buttons button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
