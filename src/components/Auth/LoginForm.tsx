@@ -65,7 +65,7 @@ export const LoginForm: React.FC = () => {
     <div className="login-container">
       <div className="login-card">
         <div className="login-header">
-          <h1>HRMS Desktop</h1>
+          <h1>vitco Desktop</h1>
           <p>Sign in to your account</p>
         </div>
 

@@ -1,6 +1,6 @@
-# HRMS Desktop Application
+# vitco Desktop Application
 
-A desktop application built with Electron and React for the HRMS system.
+A desktop application built with Electron and React for the vitco system.
 
 ## Features
 

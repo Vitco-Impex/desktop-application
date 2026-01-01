@@ -1,16 +1,16 @@
 {
-  "name": "hrms-desktop",
-  "version": "1.4.0",
-  "description": "HRMS Desktop Application",
+  "name": "vitco-desktop",
+  "version": "1.5.0",
+  "description": "vitco Desktop Application",
   "main": "dist-electron/main.js",
   "author": {
     "name": "Pioneer Ventures",
     "email": "info@pioneer.com"
   },
   "build": {
-    "appId": "com.hrms.desktop",
-    "productName": "HRMS Desktop",
-    "copyright": "Copyright © 2025 HRMS",
+    "appId": "com.vitco.desktop",
+    "productName": "vitco Desktop",
+    "copyright": "Copyright © 2025 vitco",
     "directories": {
       "buildResources": "build",
       "output": "release"

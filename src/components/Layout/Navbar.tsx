@@ -1,6 +1,6 @@
 /**
  * Top Navigation Bar Component
- * Minimal, compact, professional horizontal navbar for enterprise HRMS
+ * Minimal, compact, professional horizontal navbar for enterprise vitco
  */
 
 import React, { useState, useRef, useEffect } from 'react';
@@ -149,7 +149,7 @@ export const Navbar: React.FC = () => {
           >
             <img 
               src="./assets/logo.png" 
-              alt="HRMS Logo" 
+              alt="vitco Logo" 
               className="navbar-logo-img"
             />
           </button>

@@ -2,7 +2,7 @@
 
 ## Overview
 
-The top navigation bar is a minimal, compact, professional horizontal navigation component designed for enterprise HRMS desktop applications. It prioritizes clarity, efficiency, and consistency over visual flair.
+The top navigation bar is a minimal, compact, professional horizontal navigation component designed for enterprise vitco desktop applications. It prioritizes clarity, efficiency, and consistency over visual flair.
 
 ## Structure
 
@@ -10,7 +10,7 @@ The top navigation bar is a minimal, compact, professional horizontal navigation
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│ [HRMS Desktop]  [Dashboard] [Attendance] [Reports]  [User ▼] │
+│ [vitco Desktop]  [Dashboard] [Attendance] [Reports]  [User ▼] │
 └─────────────────────────────────────────────────────────────┘
    LEFT              CENTER                    RIGHT
 ```
@@ -18,7 +18,7 @@ The top navigation bar is a minimal, compact, professional horizontal navigation
 ### Sections
 
 1. **Left Section** (Logo/App Name)
-   - Text-based app name: "HRMS Desktop"
+   - Text-based app name: "vitco Desktop"
    - Clickable, navigates to Dashboard
    - No heavy branding or icons
 

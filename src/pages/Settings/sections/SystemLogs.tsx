@@ -201,7 +201,7 @@ export const SystemLogs: React.FC = () => {
         <div className="settings-card-content">
           <div className="logs-instructions">
             <p><strong>Option 1: System Tray Menu</strong></p>
-            <p>Right-click the HRMS Desktop icon in the system tray and select "View System Logs"</p>
+            <p>Right-click the vitco Desktop icon in the system tray and select "View System Logs"</p>
             
             <p><strong>Option 2: Log File Location</strong></p>
             {logPath ? (

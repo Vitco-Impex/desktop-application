@@ -8,7 +8,7 @@ export const config = {
     timeout: 30000,
   },
   app: {
-    name: 'HRMS Desktop',
+    name: 'vitco Desktop',
     version: '1.0.0',
   },
   updates: {

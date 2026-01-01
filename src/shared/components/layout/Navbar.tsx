@@ -140,7 +140,7 @@ export const Navbar: React.FC = () => {
           >
             <img 
               src="./assets/logo.png" 
-              alt="HRMS Logo" 
+              alt="vitco Logo" 
               className="navbar-logo-img"
             />
           </button>
