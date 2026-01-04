@@ -127,6 +127,56 @@
   color: #065f46;
 }
 
+.status-toggle {
+  display: inline-block;
+  padding: 2px var(--spacing-sm);
+  border-radius: var(--border-radius);
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-medium);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: none;
+  font-family: inherit;
+}
+
+.status-toggle:hover {
+  transform: scale(1.05);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.status-toggle.status-not-started {
+  background-color: var(--color-bg-tertiary);
+  color: var(--color-text-tertiary);
+}
+
+.status-toggle.status-not-started:hover {
+  background-color: #e5e7eb;
+  border-color: #9ca3af;
+}
+
+.status-toggle.status-checked-in {
+  background-color: #dbeafe;
+  color: #1e40af;
+}
+
+.status-toggle.status-checked-in:hover {
+  background-color: #bfdbfe;
+  border-color: #3b82f6;
+}
+
+.status-toggle.status-checked-out {
+  background-color: #d1fae5;
+  color: #065f46;
+}
+
+.status-toggle.status-checked-out:hover {
+  background-color: #a7f3d0;
+  border-color: #10b981;
+}
+
 .attendance-list-summary {
   display: flex;
   gap: var(--spacing-xl);
@@ -143,16 +193,44 @@
   font-size: var(--font-size-base);
 }
 
-.attendance-list-loading,
-.attendance-list-error {
+.attendance-list-loading {
   text-align: center;
   padding: var(--spacing-3xl);
   font-size: var(--font-size-base);
 }
 
-.attendance-list-error {
+.attendance-list-error-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-md) var(--spacing-lg);
+  margin-bottom: var(--spacing-lg);
   color: #991b1b;
   background-color: #fee2e2;
+  border: 1px solid #fecaca;
   border-radius: var(--border-radius);
+  font-size: var(--font-size-base);
+}
+
+.attendance-list-error-close {
+  background: none;
+  border: none;
+  color: #991b1b;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0;
+  margin-left: var(--spacing-md);
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.attendance-list-error-close:hover {
+  color: #7f1d1d;
+  background-color: #fecaca;
+  border-radius: 50%;
 }
 

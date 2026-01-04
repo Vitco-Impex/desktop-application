@@ -91,6 +91,30 @@ class EmployeeService {
   async resetPassword(id: string, newPassword: string): Promise<void> {
     await api.post(`/employees/${id}/reset-password`, { password: newPassword });
   }
+
+  /**
+   * Get proxy permission for a user
+   */
+  async getProxyPermission(userId: string): Promise<{ canActAsProxy: boolean }> {
+    const response = await api.get(`/employees/${userId}/proxy-permission`);
+    return response.data.data;
+  }
+
+  /**
+   * Update proxy permission for a user (admin only)
+   */
+  async updateProxyPermission(userId: string, canActAsProxy: boolean): Promise<{ canActAsProxy: boolean }> {
+    const response = await api.put(`/employees/${userId}/proxy-permission`, { canActAsProxy });
+    return response.data.data;
+  }
+
+  /**
+   * Get all users with proxy permission (admin only)
+   */
+  async getAllProxyEnabledUsers(): Promise<User[]> {
+    const response = await api.get('/employees/proxy-enabled');
+    return response.data.data;
+  }
 }
 
 export const employeeService = new EmployeeService();

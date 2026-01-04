@@ -92,7 +92,8 @@ export const EmployeeDetailsPage: React.FC = () => {
       request.taskStatusOverridePermission !== undefined ||
       request.overtimeEligibilityOverride !== undefined ||
       request.breakRuleOverride !== undefined ||
-      request.holidayWorkingPermission !== undefined
+      request.holidayWorkingPermission !== undefined ||
+      request.canActAsProxy !== undefined
     );
   };
 

@@ -11,10 +11,11 @@ import { AttendanceSettings } from './sections/AttendanceSettings';
 import { ReportsSettings } from './sections/ReportsSettings';
 import { EmployeeSettings } from './sections/EmployeeSettings';
 import { ShiftSettings } from './sections/ShiftSettings';
+import { ProxySettings } from './sections/ProxySettings';
 import { SystemLogs } from './sections/SystemLogs';
 import './SettingsPage.css';
 
-type SettingsSection = 'personal' | 'attendance' | 'reports' | 'employees' | 'shifts' | 'logs';
+type SettingsSection = 'personal' | 'attendance' | 'reports' | 'employees' | 'shifts' | 'proxy' | 'logs';
 
 export const SettingsPage: React.FC = () => {
   const { user } = authStore();
@@ -47,6 +48,7 @@ export const SettingsPage: React.FC = () => {
     { id: 'reports' as const, label: 'Reports', icon: '📊' },
     ...(canManageEmployees ? [{ id: 'employees' as const, label: 'Employees', icon: '👥' }] : []),
     ...(canManageEmployees ? [{ id: 'shifts' as const, label: 'Shifts', icon: '🕐' }] : []),
+    { id: 'proxy' as const, label: 'Proxy Server', icon: '🔌' },
     { id: 'logs' as const, label: 'System Logs', icon: '📋' },
   ];
 
@@ -79,6 +81,7 @@ export const SettingsPage: React.FC = () => {
           {activeSection === 'reports' && <ReportsSettings />}
           {activeSection === 'employees' && canManageEmployees && <EmployeeSettings />}
           {activeSection === 'shifts' && canManageEmployees && <ShiftSettings />}
+          {activeSection === 'proxy' && <ProxySettings />}
           {activeSection === 'logs' && <SystemLogs />}
         </div>
       </div>

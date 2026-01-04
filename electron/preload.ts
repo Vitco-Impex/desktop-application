@@ -55,6 +55,19 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getApiBaseUrl: (): Promise<string> => {
     return ipcRenderer.invoke('get-api-base-url');
   },
+  
+  // Proxy server controls
+  startProxyServer: (): Promise<{ success: boolean; port?: number; ipAddress?: string | null; error?: string }> => {
+    return ipcRenderer.invoke('proxy:start');
+  },
+  
+  stopProxyServer: (): Promise<{ success: boolean; error?: string }> => {
+    return ipcRenderer.invoke('proxy:stop');
+  },
+  
+  getProxyStatus: (): Promise<{ success: boolean; isRunning?: boolean; port?: number; connectedClients?: number; ipAddress?: string | null; error?: string }> => {
+    return ipcRenderer.invoke('proxy:status');
+  },
 });
 
 // Listen for IPC messages from main process

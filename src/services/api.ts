@@ -71,8 +71,13 @@ class ApiService {
               // Retry original request with new token
               originalRequest.headers.Authorization = `Bearer ${tokenData.accessToken}`;
               return this.instance(originalRequest);
-            } catch (refreshError) {
+            } catch (refreshError: any) {
               // Refresh failed, logout user
+              console.error('[ApiService] Token refresh failed:', {
+                message: refreshError?.message,
+                status: refreshError?.response?.status,
+                data: refreshError?.response?.data,
+              });
               authStore.getState().logout();
               return Promise.reject(refreshError);
             }

@@ -171,6 +171,83 @@ class AttendanceService {
     const response = await api.get('/attendance/dashboard', { params });
     return response.data.data;
   }
+
+  /**
+   * Mark attendance for another employee (HR/Manager/Admin only)
+   */
+  async markAttendanceForEmployee(request: {
+    employeeId: string;
+    action: 'check-in' | 'check-out';
+    source?: AttendanceSource;
+    location?: {
+      latitude?: number;
+      longitude?: number;
+      address?: string;
+    };
+    wifi?: {
+      ssid: string;
+      bssid?: string;
+    };
+    ethernet?: {
+      macAddress: string;
+    };
+    systemFingerprint?: string;
+    checkInTime?: string;
+    checkOutTime?: string;
+    overrideReason?: string;
+  }): Promise<{ record: AttendanceRecord; message: string }> {
+    // Ensure employeeId is a string, not an object
+    if (typeof request.employeeId !== 'string') {
+      if (request.employeeId && typeof request.employeeId === 'object') {
+        // Extract ID from object if object was passed
+        request.employeeId = (request.employeeId as any).id || (request.employeeId as any)._id || (request.employeeId as any).employeeId;
+      }
+      if (typeof request.employeeId !== 'string') {
+        throw new Error('Employee ID must be a string');
+      }
+    }
+    // Trim whitespace
+    request.employeeId = request.employeeId.trim();
+    // Auto-fill network info if not provided (for desktop)
+    if (!request.wifi && !request.ethernet && window.electronAPI) {
+      try {
+        const networkInfo = await window.electronAPI.getCurrentNetwork();
+        if (networkInfo.type === 'wifi' && networkInfo.wifi?.ssid) {
+          request.wifi = {
+            ssid: networkInfo.wifi.ssid,
+            bssid: networkInfo.wifi.bssid || undefined,
+          };
+        } else if (networkInfo.type === 'ethernet' && networkInfo.ethernet?.macAddress) {
+          request.ethernet = {
+            macAddress: networkInfo.ethernet.macAddress,
+          };
+        }
+      } catch (error) {
+        console.error('Failed to get network info:', error);
+      }
+    }
+
+    // Auto-fill system fingerprint if not provided (for desktop)
+    if (!request.systemFingerprint) {
+      try {
+        const fingerprint = await getSystemFingerprint();
+        if (fingerprint && fingerprint.trim() !== '') {
+          request.systemFingerprint = fingerprint;
+        }
+      } catch (error) {
+        console.warn('Failed to get system fingerprint:', error);
+      }
+    }
+
+    const response = await api.post('/attendance/mark-for-employee', {
+      ...request,
+      source: request.source || AttendanceSource.DESKTOP,
+    });
+    return {
+      record: response.data.data,
+      message: response.data.message || 'Attendance marked successfully',
+    };
+  }
 }
 
 export const attendanceService = new AttendanceService();

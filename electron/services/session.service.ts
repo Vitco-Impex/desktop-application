@@ -121,6 +121,86 @@ class SessionService {
     const session = await this.validateSession();
     return session.user;
   }
+
+  /**
+   * Refresh access token using refresh token
+   * Makes API call from main process and updates renderer's localStorage
+   */
+  async refreshAccessToken(): Promise<string | null> {
+    const session = await this.getSessionFromRenderer();
+    
+    if (!session.isValid || !session.refreshToken) {
+      return null;
+    }
+
+    try {
+      if (!this.mainWindow) {
+        return null;
+      }
+
+      // Get API base URL from renderer
+      const apiBaseUrl = await this.mainWindow.webContents.executeJavaScript(`
+        (() => {
+          try {
+            return window.__API_BASE_URL__ || 'http://127.0.0.1:3001/api/v1';
+          } catch (error) {
+            return 'http://127.0.0.1:3001/api/v1';
+          }
+        })()
+      `);
+
+      // Use axios from main process to call refresh endpoint
+      const axios = require('axios');
+      const http = require('http');
+      const https = require('https');
+      
+      const response = await axios.post(
+        `${apiBaseUrl}/auth/refresh`,
+        { refreshToken: session.refreshToken },
+        {
+          timeout: 10000,
+          httpAgent: new http.Agent({ family: 4 }),
+          httpsAgent: new https.Agent({ family: 4 }),
+        }
+      );
+
+      if (response.data?.success && response.data?.data?.accessToken) {
+        const newAccessToken = response.data.data.accessToken;
+        const newRefreshToken = response.data.data.refreshToken || session.refreshToken;
+
+        // Update localStorage in renderer process
+        await this.mainWindow.webContents.executeJavaScript(`
+          (() => {
+            try {
+              const authData = localStorage.getItem('auth-storage');
+              if (authData) {
+                const parsed = JSON.parse(authData);
+                const state = parsed.state || parsed;
+                const updatedState = {
+                  ...state,
+                  accessToken: ${JSON.stringify(newAccessToken)},
+                  refreshToken: ${JSON.stringify(newRefreshToken)},
+                };
+                localStorage.setItem('auth-storage', JSON.stringify({
+                  state: updatedState,
+                  version: parsed.version || 0,
+                }));
+              }
+            } catch (error) {
+              console.error('Failed to update localStorage:', error);
+            }
+          })()
+        `);
+        
+        return newAccessToken;
+      }
+
+      return null;
+    } catch (error: any) {
+      console.error('[SessionService] Failed to refresh access token:', error.response?.data || error.message);
+      return null;
+    }
+  }
 }
 
 export const sessionService = new SessionService();

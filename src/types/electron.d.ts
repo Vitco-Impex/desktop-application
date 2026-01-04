@@ -28,6 +28,9 @@ export interface ElectronAPI {
   triggerAutoCheckInOnLogin: () => Promise<any>;
   triggerAutoCheckInOnAuthInit: () => Promise<any>;
   getApiBaseUrl: () => Promise<string>;
+  startProxyServer: () => Promise<{ success: boolean; port?: number; ipAddress?: string | null; error?: string }>;
+  stopProxyServer: () => Promise<{ success: boolean; error?: string }>;
+  getProxyStatus: () => Promise<{ success: boolean; isRunning?: boolean; port?: number; connectedClients?: number; ipAddress?: string | null; error?: string }>;
 }
 
 declare global {

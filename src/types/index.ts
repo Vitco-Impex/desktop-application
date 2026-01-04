@@ -9,6 +9,57 @@ export enum UserRole {
   ADMIN = 'admin',
 }
 
+// User interface
+export interface User {
+  id: string;
+  email: string;
+  name: string;
+  role: UserRole;
+  department?: string;
+  phoneNumber?: string;
+  address?: string;
+  employeeId?: string;
+  designation?: string;
+  isActive?: boolean;
+  canActAsProxy?: boolean;
+}
+
+// Auth types
+export interface AuthState {
+  user: User | null;
+  accessToken: string | null;
+  refreshToken: string | null;
+  isAuthenticated: boolean;
+}
+
+export interface LoginRequest {
+  email: string;
+  password: string;
+}
+
+export interface LoginResponse {
+  user: User;
+  accessToken: string;
+  refreshToken: string;
+}
+
+export interface RefreshTokenResponse {
+  accessToken: string;
+  refreshToken: string;
+}
+
+// Proxy types
+export interface ProxyPermission {
+  canActAsProxy: boolean;
+}
+
+export interface ProxyServerStatus {
+  isRunning: boolean;
+  port: number;
+  ipAddress: string | null;
+  connectedClients: number;
+}
+
 // Attendance enums
 export enum AttendanceSessionStatus {
   NOT_STARTED = 'NOT_STARTED',
@@ -62,6 +113,11 @@ export interface CheckInRequest {
 
 export interface CheckOutRequest {
   source: AttendanceSource;
+  location?: {
+    latitude?: number;
+    longitude?: number;
+    address?: string;
+  };
   wifi?: {
     ssid: string;
     bssid?: string;
@@ -180,6 +236,7 @@ export interface EmployeeDetails {
   overtimeEligibilityOverride?: boolean;
   breakRuleOverride?: boolean;
   holidayWorkingPermission?: boolean;
+  canActAsProxy?: boolean;
   
   // System & Audit (read-only)
   createdAt: string;
@@ -230,6 +287,7 @@ export interface UpdateEmployeeDetailsRequest {
   overtimeEligibilityOverride?: boolean;
   breakRuleOverride?: boolean;
   holidayWorkingPermission?: boolean;
+  canActAsProxy?: boolean;
   
   // Optional reason for audit
   reason?: string;

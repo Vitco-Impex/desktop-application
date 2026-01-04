@@ -106,7 +106,15 @@ class AutoAttendanceService {
       // but if we can get status, it means user has a shift assigned
       // Backend will validate shift rules during check-in
     } catch (error: any) {
-      // If status check fails, we can't proceed
+      // Handle connection errors gracefully
+      if (error.isConnectionError || error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND' || error.code === 'ETIMEDOUT') {
+        console.warn('[AutoAttendanceService] Server connection failed - server may not be running');
+        return {
+          eligible: false,
+          reason: 'Server connection failed. Please ensure the server is running.',
+        };
+      }
+      // If status check fails for other reasons, we can't proceed
       return {
         eligible: false,
         reason: `Failed to check attendance status: ${error.message || 'Unknown error'}`,

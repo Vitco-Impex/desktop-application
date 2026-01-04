@@ -13,6 +13,7 @@ import { sessionService } from './services/session.service';
 import { configService } from './services/config.service';
 import { storageService } from './services/storage.service';
 import { apiService } from './services/api.service';
+import { proxyServerService } from './services/proxy-server.service';
 
 // Network utilities
 import { getCurrentNetwork, getCurrentWifi, NetworkInfo, WifiInfo } from './utils/network.util';
@@ -1518,11 +1519,46 @@ ipcMain.handle('get-log-path', async () => {
   return logPath;
 });
 
+// Proxy server IPC handlers
+ipcMain.handle('proxy:start', async () => {
+  try {
+    console.log('[Main] Starting proxy server...');
+    const result = await proxyServerService.startProxyServer();
+    console.log('[Main] Proxy server started:', result);
+    return { success: true, ...result };
+  } catch (error: any) {
+    console.error('[Main] Failed to start proxy server:', error);
+    return { success: false, error: error.message || 'Failed to start proxy server' };
+  }
+});
+
+ipcMain.handle('proxy:stop', async () => {
+  try {
+    console.log('[Main] Stopping proxy server...');
+    await proxyServerService.stopProxyServer();
+    console.log('[Main] Proxy server stopped');
+    return { success: true };
+  } catch (error: any) {
+    console.error('[Main] Failed to stop proxy server:', error);
+    return { success: false, error: error.message || 'Failed to stop proxy server' };
+  }
+});
+
+ipcMain.handle('proxy:status', async () => {
+  try {
+    const status = proxyServerService.getStatus();
+    return { success: true, ...status };
+  } catch (error: any) {
+    console.error('[Main] Failed to get proxy status:', error);
+    return { success: false, error: error.message || 'Failed to get proxy status' };
+  }
+});
+
 // Handle getting API base URL from renderer process
 ipcMain.handle('get-api-base-url', async () => {
   if (!mainWindow) {
     console.warn('[Main] Cannot get API base URL: mainWindow is null');
-    return 'http://localhost:3001/api/v1'; // Default fallback
+    return 'http://127.0.0.1:3001/api/v1'; // Default fallback (IPv4 to avoid ::1 issues)
   }
 
   try {
@@ -1532,10 +1568,12 @@ ipcMain.handle('get-api-base-url', async () => {
       (() => {
         try {
           // Get from window.__API_BASE_URL__ set by renderer's main.tsx
-          return window.__API_BASE_URL__ || 'http://localhost:3001/api/v1';
+          const url = window.__API_BASE_URL__ || 'http://127.0.0.1:3001/api/v1';
+          // Replace localhost with 127.0.0.1 to force IPv4 and avoid IPv6 issues
+          return url.replace(/localhost/g, '127.0.0.1');
         } catch (error) {
           console.error('Failed to get API base URL:', error);
-          return 'http://localhost:3001/api/v1';
+          return 'http://127.0.0.1:3001/api/v1';
         }
       })()
     `);
@@ -1544,7 +1582,7 @@ ipcMain.handle('get-api-base-url', async () => {
     return apiBaseUrl;
   } catch (error) {
     console.error('[Main] Failed to get API base URL from renderer:', error);
-    return 'http://localhost:3001/api/v1'; // Default fallback
+    return 'http://127.0.0.1:3001/api/v1'; // Default fallback (IPv4 to avoid ::1 issues)
   }
 });
 

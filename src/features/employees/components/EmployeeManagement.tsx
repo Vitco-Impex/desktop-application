@@ -6,7 +6,9 @@
 import React, { useState, useEffect } from 'react';
 import { employeeService, CreateEmployeeRequest, UpdateEmployeeRequest } from '@/services/employee.service';
 import { employeeDetailsService } from '@/services/employee.service';
+import { shiftService } from '@/services/shift.service';
 import { User, UserRole, EmployeeDetails, UpdateEmployeeDetailsRequest } from '@/types';
+import { Shift } from '@/types/shift';
 import { Button, Input, Card } from '@/shared/components/ui';
 import { ProfileSummarySection } from '@/pages/Employee/sections/ProfileSummarySection';
 import { EmploymentRoleSection } from '@/pages/Employee/sections/EmploymentRoleSection';
@@ -56,10 +58,19 @@ export const EmployeeManagement: React.FC = () => {
     employeeId: '',
     designation: '',
   });
+  const [shifts, setShifts] = useState<Shift[]>([]);
+  const [selectedShiftId, setSelectedShiftId] = useState<string>('');
+  const [loadingShifts, setLoadingShifts] = useState(false);
 
   useEffect(() => {
     loadEmployees();
   }, []);
+
+  useEffect(() => {
+    if (viewMode === 'add') {
+      loadShifts();
+    }
+  }, [viewMode]);
 
   useEffect(() => {
     if (selectedEmployeeId && viewMode === 'details') {
@@ -110,6 +121,18 @@ export const EmployeeManagement: React.FC = () => {
     }
   };
 
+  const loadShifts = async () => {
+    try {
+      setLoadingShifts(true);
+      const shiftsData = await shiftService.getActiveShifts();
+      setShifts(shiftsData || []);
+    } catch (err: any) {
+      console.error('Failed to load shifts:', err);
+    } finally {
+      setLoadingShifts(false);
+    }
+  };
+
   const handleAddEmployee = () => {
     setViewMode('add');
     setSelectedEmployeeId(null);
@@ -124,6 +147,7 @@ export const EmployeeManagement: React.FC = () => {
       employeeId: '',
       designation: '',
     });
+    setSelectedShiftId('');
     setError(null);
     setSuccess(null);
   };
@@ -165,11 +189,31 @@ export const EmployeeManagement: React.FC = () => {
 
     try {
       setLoading(true);
-      await employeeService.createEmployee(formData as CreateEmployeeRequest);
+      // Create employee first
+      const newEmployee = await employeeService.createEmployee(formData as CreateEmployeeRequest);
       setSuccess('Employee created successfully');
+      
+      // If shift is selected, assign it to the employee
+      if (selectedShiftId) {
+        try {
+          await shiftService.createAssignment({
+            assignmentMode: 'individual',
+            employeeId: newEmployee.id,
+            shiftId: selectedShiftId,
+            assignmentType: 'permanent',
+            startDate: new Date().toISOString().split('T')[0],
+          });
+          setSuccess('Employee created and shift assigned successfully');
+        } catch (shiftErr: any) {
+          // Employee created but shift assignment failed - show warning
+          console.error('Failed to assign shift:', shiftErr);
+          setSuccess('Employee created successfully, but shift assignment failed. You can assign a shift later.');
+        }
+      }
+      
       await loadEmployees();
       handleBackToList();
-      setTimeout(() => setSuccess(null), 3000);
+      setTimeout(() => setSuccess(null), 5000);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to create employee');
     } finally {
@@ -220,7 +264,8 @@ export const EmployeeManagement: React.FC = () => {
       request.taskStatusOverridePermission !== undefined ||
       request.overtimeEligibilityOverride !== undefined ||
       request.breakRuleOverride !== undefined ||
-      request.holidayWorkingPermission !== undefined
+      request.holidayWorkingPermission !== undefined ||
+      request.canActAsProxy !== undefined
     );
   };
 
@@ -463,6 +508,31 @@ export const EmployeeManagement: React.FC = () => {
                     required
                     disabled={loading}
                   />
+                </div>
+
+                <div className="form-row">
+                  <div className="input-group">
+                    <label htmlFor="shiftId">Assign Shift (Optional)</label>
+                    <select
+                      id="shiftId"
+                      name="shiftId"
+                      value={selectedShiftId}
+                      onChange={(e) => setSelectedShiftId(e.target.value)}
+                      disabled={loading || loadingShifts}
+                      className="input"
+                    >
+                      <option value="">-- No Shift --</option>
+                      {shifts.map((shift) => (
+                        <option key={shift.id} value={shift.id}>
+                          {shift.name} ({shift.startTime} - {shift.endTime})
+                        </option>
+                      ))}
+                    </select>
+                    {loadingShifts && <small>Loading shifts...</small>}
+                    {!loadingShifts && shifts.length === 0 && (
+                      <small style={{ color: '#666' }}>No active shifts available. Create a shift first.</small>
+                    )}
+                  </div>
                 </div>
 
                 <div className="form-actions">

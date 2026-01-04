@@ -4,6 +4,8 @@
  */
 
 import axios, { AxiosInstance, AxiosError } from 'axios';
+import http from 'http';
+import https from 'https';
 import { sessionService } from './session.service';
 
 // Local type definitions (to avoid importing from renderer)
@@ -46,6 +48,11 @@ interface CheckInRequest {
 
 interface CheckOutRequest {
   source: string;
+  location?: {
+    latitude?: number;
+    longitude?: number;
+    address?: string;
+  };
   wifi?: {
     ssid: string;
     bssid?: string;
@@ -78,12 +85,16 @@ class ApiService {
 
   constructor() {
     // Initialize with a placeholder - will be updated from renderer
+    // Use 127.0.0.1 instead of localhost to force IPv4 and avoid IPv6 issues
     this.instance = axios.create({
-      baseURL: 'http://localhost:3001/api/v1', // Temporary default
+      baseURL: 'http://127.0.0.1:3001/api/v1', // Temporary default (IPv4 to avoid ::1 issues)
       timeout: API_TIMEOUT,
       headers: {
         'Content-Type': 'application/json',
       },
+      // Force IPv4 by using family: 4 in httpAgent
+      httpAgent: new http.Agent({ family: 4 }),
+      httpsAgent: new https.Agent({ family: 4 }),
     });
 
     this.setupInterceptors();
@@ -111,7 +122,7 @@ class ApiService {
         
         if (!mainWindow) {
           console.warn('[ApiService] Main window not available, using default API URL');
-          return 'http://localhost:3001/api/v1';
+          return 'http://127.0.0.1:3001/api/v1';
         }
 
         // Wait for window to be ready if needed
@@ -124,24 +135,30 @@ class ApiService {
         // Small delay to ensure renderer has set the global variable
         await new Promise(resolve => setTimeout(resolve, 500));
 
-        const apiBaseUrl = await mainWindow.webContents.executeJavaScript(`
+        let apiBaseUrl = await mainWindow.webContents.executeJavaScript(`
           (() => {
             try {
-              return window.__API_BASE_URL__ || 'http://localhost:3001/api/v1';
+              return window.__API_BASE_URL__ || 'http://127.0.0.1:3001/api/v1';
             } catch (error) {
               console.error('Failed to get API base URL:', error);
-              return 'http://localhost:3001/api/v1';
+              return 'http://127.0.0.1:3001/api/v1';
             }
           })()
         `);
         
-        console.log('[ApiService] Got API base URL from renderer:', apiBaseUrl);
+        // Normalize URL: Replace localhost with 127.0.0.1 to force IPv4
+        apiBaseUrl = apiBaseUrl.replace(/localhost/g, '127.0.0.1');
+          
+        console.log('[ApiService] Got API base URL from renderer (normalized):', apiBaseUrl);
         this.apiBaseUrl = apiBaseUrl;
         this.instance.defaults.baseURL = apiBaseUrl;
+        // Ensure IPv4 is used by updating agents (family: 4 forces IPv4)
+        this.instance.defaults.httpAgent = new http.Agent({ family: 4 });
+        this.instance.defaults.httpsAgent = new https.Agent({ family: 4 });
         return apiBaseUrl;
       } catch (error) {
         console.error('[ApiService] Failed to get API base URL from renderer:', error);
-        const defaultUrl = 'http://localhost:3001/api/v1';
+        const defaultUrl = 'http://127.0.0.1:3001/api/v1';
         this.apiBaseUrl = defaultUrl;
         return defaultUrl;
       } finally {
@@ -202,7 +219,16 @@ class ApiService {
     try {
       const response = await this.instance.get('/attendance/status');
       return response.data.data;
-    } catch (error) {
+    } catch (error: any) {
+      // Handle connection errors gracefully
+      if (error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND' || error.code === 'ETIMEDOUT') {
+        const errorMessage = `Cannot connect to server at ${this.instance.defaults.baseURL}. Please ensure the server is running.`;
+        console.error('[ApiService] Connection error:', errorMessage);
+        const connectionError: any = new Error(errorMessage);
+        connectionError.code = error.code;
+        connectionError.isConnectionError = true;
+        throw connectionError;
+      }
       console.error('[ApiService] Failed to get attendance status:', error);
       throw error;
     }

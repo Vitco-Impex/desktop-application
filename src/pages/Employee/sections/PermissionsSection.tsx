@@ -148,6 +148,28 @@ export const PermissionsSection: React.FC<PermissionsSectionProps> = ({
               </div>
             )}
           </div>
+
+          <div className="form-field toggle-field">
+            <label className="field-label">Can Act as Proxy Server</label>
+            {canEdit ? (
+              <label className="toggle-switch">
+                <input
+                  type="checkbox"
+                  checked={employee.canActAsProxy || false}
+                  onChange={(e) => handleToggle('canActAsProxy', e.target.checked)}
+                  disabled={!canEdit}
+                />
+                <span className="toggle-slider"></span>
+              </label>
+            ) : (
+              <div className="field-value read-only">
+                {employee.canActAsProxy ? 'Yes' : 'No'}
+              </div>
+            )}
+            <small className="field-hint">
+              Allow this employee to act as a proxy server for attendance requests
+            </small>
+          </div>
         </div>
       </div>
     </SectionWrapper>

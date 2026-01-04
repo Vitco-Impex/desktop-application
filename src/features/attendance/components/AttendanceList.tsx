@@ -1,7 +1,7 @@
 /**
  * Attendance List Component
  * Shows attendance records based on role permissions
- * Read-only table view
+ * Toggle status column for HR/Manager/Admin to mark attendance
  */
 
 import React, { useState, useEffect } from 'react';
@@ -9,6 +9,7 @@ import { attendanceService } from '@/services/attendance.service';
 import { socketService } from '@/services/socket.service';
 import { authStore } from '@/store/authStore';
 import { AttendanceDashboardData, AttendanceSessionStatus, UserRole } from '@/types';
+import { MarkAttendanceDialog } from './MarkAttendanceDialog';
 import './AttendanceList.css';
 
 interface AttendanceListProps {
@@ -23,6 +24,12 @@ export const AttendanceList: React.FC<AttendanceListProps> = ({ role }) => {
   const [selectedDate, setSelectedDate] = useState<string>(
     new Date().toISOString().split('T')[0]
   );
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedEmployee, setSelectedEmployee] = useState<{
+    id: string;
+    name: string;
+    status: AttendanceSessionStatus;
+  } | null>(null);
 
   useEffect(() => {
     loadAttendanceList();
@@ -98,17 +105,24 @@ export const AttendanceList: React.FC<AttendanceListProps> = ({ role }) => {
     }
   };
 
+  // Helper function to validate MongoDB ObjectId format
+  const isValidObjectId = (id: any): boolean => {
+    if (!id || typeof id !== 'string') return false;
+    if (id === 'unknown' || id === 'null') return false;
+    return /^[0-9a-fA-F]{24}$/.test(id);
+  };
+
   // Combine all attendance records
-  // Filter out any records with missing employeeId
+  // Filter out any records with missing or invalid employeeId
   const allRecords = [
     ...(dashboardData?.checkedIn
-      .filter((item) => item.employeeId)
+      .filter((item) => item.employeeId && isValidObjectId(item.employeeId))
       .map((item) => ({ ...item, type: 'checked-in' })) || []),
     ...(dashboardData?.checkedOut
-      .filter((item) => item.employeeId)
+      .filter((item) => item.employeeId && isValidObjectId(item.employeeId))
       .map((item) => ({ ...item, type: 'checked-out' })) || []),
     ...(dashboardData?.notStarted
-      .filter((item) => item.employeeId)
+      .filter((item) => item.employeeId && isValidObjectId(item.employeeId))
       .map((item) => ({ 
         ...item, 
         type: 'not-started',
@@ -122,6 +136,38 @@ export const AttendanceList: React.FC<AttendanceListProps> = ({ role }) => {
   // Backend already filters based on role, so we use all records
   // Frontend filtering is minimal - just ensure we don't show list for employees
   const filteredRecords = role === UserRole.EMPLOYEE ? [] : allRecords;
+
+  // Check if user can mark attendance for others
+  const canMarkForOthers = [UserRole.HR, UserRole.MANAGER, UserRole.ADMIN].includes(role);
+
+  const handleStatusToggle = (record: any) => {
+    if (!canMarkForOthers) return;
+    
+    // Validate employeeId before opening dialog
+    const employeeId = record.employeeId;
+    if (!isValidObjectId(employeeId)) {
+      console.warn('[AttendanceList] Invalid employeeId for record:', record);
+      // Show a less alarming error message - this is a data issue, not a critical error
+      setError(`Unable to mark attendance for ${record.employeeName || 'this employee'}. Please refresh the page.`);
+      // Clear error after 5 seconds
+      setTimeout(() => setError(null), 5000);
+      return;
+    }
+    
+    // Clear any previous errors
+    setError(null);
+    
+    setSelectedEmployee({
+      id: employeeId,
+      name: record.employeeName || 'Unknown',
+      status: record.status,
+    });
+    setDialogOpen(true);
+  };
+
+  const handleDialogSuccess = () => {
+    loadAttendanceList();
+  };
 
   const getListTitle = (): string => {
     switch (role) {
@@ -144,14 +190,6 @@ export const AttendanceList: React.FC<AttendanceListProps> = ({ role }) => {
     );
   }
 
-  if (error) {
-    return (
-      <div className="attendance-list">
-        <div className="attendance-list-error">{error}</div>
-      </div>
-    );
-  }
-
   return (
     <div className="attendance-list">
       <div className="attendance-list-header">
@@ -163,6 +201,19 @@ export const AttendanceList: React.FC<AttendanceListProps> = ({ role }) => {
           className="attendance-list-date-filter"
         />
       </div>
+
+      {error && (
+        <div className="attendance-list-error-banner" role="alert">
+          {error}
+          <button
+            className="attendance-list-error-close"
+            onClick={() => setError(null)}
+            aria-label="Close error message"
+          >
+            ×
+          </button>
+        </div>
+      )}
 
       {filteredRecords.length === 0 ? (
         <div className="attendance-list-empty">
@@ -176,7 +227,7 @@ export const AttendanceList: React.FC<AttendanceListProps> = ({ role }) => {
                 <th>Name</th>
                 <th>Role</th>
                 <th>Department</th>
-                <th>Status</th>
+                <th>Status{canMarkForOthers ? ' (Click to Toggle)' : ''}</th>
                 <th>Check-in</th>
                 <th>Check-out</th>
                 <th>Duration</th>
@@ -195,9 +246,19 @@ export const AttendanceList: React.FC<AttendanceListProps> = ({ role }) => {
                     </td>
                     <td className="department-cell">{record.department || '--'}</td>
                     <td>
-                      <span className={`status-badge ${getStatusClass(record.status)}`}>
-                        {getStatusBadge(record.status)}
-                      </span>
+                      {canMarkForOthers ? (
+                        <button
+                          className={`status-toggle ${getStatusClass(record.status)}`}
+                          onClick={() => handleStatusToggle(record)}
+                          title="Click to mark attendance"
+                        >
+                          {getStatusBadge(record.status)}
+                        </button>
+                      ) : (
+                        <span className={`status-badge ${getStatusClass(record.status)}`}>
+                          {getStatusBadge(record.status)}
+                        </span>
+                      )}
                     </td>
                     <td className="time-cell">
                       {'checkInTime' in record && record.checkInTime
@@ -228,6 +289,20 @@ export const AttendanceList: React.FC<AttendanceListProps> = ({ role }) => {
           <span>Checked Out: {dashboardData.summary.checkedOutCount}</span>
           <span>Not Started: {dashboardData.summary.notStartedCount}</span>
         </div>
+      )}
+
+      {selectedEmployee && (
+        <MarkAttendanceDialog
+          isOpen={dialogOpen}
+          onClose={() => {
+            setDialogOpen(false);
+            setSelectedEmployee(null);
+          }}
+          employeeId={selectedEmployee.id}
+          employeeName={selectedEmployee.name}
+          currentStatus={selectedEmployee.status}
+          onSuccess={handleDialogSuccess}
+        />
       )}
     </div>
   );

@@ -48,14 +48,17 @@ export const authStore = create<AuthStore>()(
         const { refreshToken, user } = get();
         
         if (!refreshToken || !user) {
+          console.log('[AuthStore] No refresh token or user, skipping auth initialization');
           set({ isAuthenticated: false, isInitializing: false });
           return;
         }
 
         try {
+          console.log('[AuthStore] Attempting to refresh token on initialization...');
           // Try to refresh token to validate session
           const tokenData = await authService.refreshToken(refreshToken);
           
+          console.log('[AuthStore] Token refreshed successfully');
           set({
             accessToken: tokenData.accessToken,
             refreshToken: tokenData.refreshToken,
@@ -69,9 +72,14 @@ export const authStore = create<AuthStore>()(
               console.error('[AuthStore] Failed to trigger auto check-in on auth init:', error);
             });
           }
-        } catch (error) {
-          // Session invalid, clear auth state
-           
+        } catch (error: any) {
+          // Session invalid or expired, clear auth state
+          console.error('[AuthStore] Failed to refresh token on initialization:', {
+            message: error?.message,
+            status: error?.response?.status,
+            data: error?.response?.data,
+          });
+          
           set({
             user: null,
             accessToken: null,
