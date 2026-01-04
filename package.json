@@ -1,6 +1,6 @@
 {
   "name": "vitco-desktop",
-  "version": "1.6.0",
+  "version": "1.7.1",
   "description": "vitco Desktop Application",
   "main": "dist-electron/main.js",
   "author": {

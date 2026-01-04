@@ -48,8 +48,11 @@ class ApiService {
       async (error: AxiosError) => {
         const originalRequest = error.config as any;
 
+        // Don't retry refresh token endpoint - it would cause infinite loop
+        const isRefreshEndpoint = originalRequest?.url?.includes('/auth/refresh');
+
         // Handle 401 Unauthorized
-        if (error.response?.status === 401 && !originalRequest._retry) {
+        if (error.response?.status === 401 && !originalRequest._retry && !isRefreshEndpoint) {
           originalRequest._retry = true;
 
           const { refreshToken } = authStore.getState();
@@ -85,6 +88,12 @@ class ApiService {
             // No refresh token, logout
             authStore.getState().logout();
           }
+        }
+
+        // If refresh endpoint failed, logout immediately
+        if (error.response?.status === 401 && isRefreshEndpoint) {
+          console.error('[ApiService] Refresh token endpoint failed - logging out');
+          authStore.getState().logout();
         }
 
         return Promise.reject(error);

@@ -1,7 +1,7 @@
 /**
  * Attendance List Component
  * Shows attendance records based on role permissions
- * Toggle status column for HR/Manager/Admin to mark attendance
+ * Toggle status column for Admin to mark attendance
  */
 
 import React, { useState, useEffect } from 'react';
@@ -137,8 +137,8 @@ export const AttendanceList: React.FC<AttendanceListProps> = ({ role }) => {
   // Frontend filtering is minimal - just ensure we don't show list for employees
   const filteredRecords = role === UserRole.EMPLOYEE ? [] : allRecords;
 
-  // Check if user can mark attendance for others
-  const canMarkForOthers = [UserRole.HR, UserRole.MANAGER, UserRole.ADMIN].includes(role);
+  // Check if user can mark attendance for others (Admin only)
+  const canMarkForOthers = role === UserRole.ADMIN;
 
   const handleStatusToggle = (record: any) => {
     if (!canMarkForOthers) return;

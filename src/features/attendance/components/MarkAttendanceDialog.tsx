@@ -1,6 +1,6 @@
 /**
  * Mark Attendance Dialog Component
- * Dialog for HR/Manager/Admin to mark attendance for employees
+ * Dialog for Admin to mark attendance for employees with time selection
  */
 
 import React, { useState, useEffect } from 'react';
@@ -19,6 +19,17 @@ interface MarkAttendanceDialogProps {
   onSuccess: () => void;
 }
 
+// Helper function to format current date/time for datetime-local input
+const getCurrentDateTimeLocal = (): string => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+};
+
 export const MarkAttendanceDialog: React.FC<MarkAttendanceDialogProps> = ({
   isOpen,
   onClose,
@@ -32,6 +43,8 @@ export const MarkAttendanceDialog: React.FC<MarkAttendanceDialogProps> = ({
   );
   const [location, setLocation] = useState<{ latitude?: number; longitude?: number; address?: string } | null>(null);
   const [overrideReason, setOverrideReason] = useState('');
+  const [checkInTime, setCheckInTime] = useState<string>('');
+  const [checkOutTime, setCheckOutTime] = useState<string>('');
   const [networkValidation, setNetworkValidation] = useState<{
     isValid: boolean;
     networkInfo: NetworkInfo | null;
@@ -48,6 +61,11 @@ export const MarkAttendanceDialog: React.FC<MarkAttendanceDialogProps> = ({
 
   useEffect(() => {
     if (isOpen) {
+      // Set default time to current date and time
+      const currentDateTime = getCurrentDateTimeLocal();
+      setCheckInTime(currentDateTime);
+      setCheckOutTime(currentDateTime);
+      
       checkNetworkStatus();
       // Try to get location if available
       if (navigator.geolocation) {
@@ -68,6 +86,8 @@ export const MarkAttendanceDialog: React.FC<MarkAttendanceDialogProps> = ({
       setAction(currentStatus === AttendanceSessionStatus.CHECKED_IN ? 'check-out' : 'check-in');
       setLocation(null);
       setOverrideReason('');
+      setCheckInTime('');
+      setCheckOutTime('');
       setError(null);
     }
   }, [isOpen, currentStatus]);
@@ -151,9 +171,9 @@ export const MarkAttendanceDialog: React.FC<MarkAttendanceDialogProps> = ({
     setError(null);
 
     try {
-      // If network validation is required and failed, require override reason
-      if (!networkValidation.isValid && !overrideReason.trim()) {
-        setError('Network validation failed. Please provide an override reason to proceed.');
+      // Require network validation to pass
+      if (!networkValidation.isValid) {
+        setError('Network validation must pass before marking attendance.');
         setLoading(false);
         return;
       }
@@ -169,29 +189,79 @@ export const MarkAttendanceDialog: React.FC<MarkAttendanceDialogProps> = ({
         return;
       }
 
+      // Convert datetime-local values to ISO strings if provided
+      const checkInTimeISO = checkInTime ? new Date(checkInTime).toISOString() : undefined;
+      const checkOutTimeISO = checkOutTime ? new Date(checkOutTime).toISOString() : undefined;
+
       await attendanceService.markAttendanceForEmployee({
         employeeId: employeeIdString,
         action,
         source: AttendanceSource.DESKTOP,
         location: location || undefined,
         overrideReason: overrideReason.trim() || undefined,
+        checkInTime: checkInTimeISO,
+        checkOutTime: checkOutTimeISO,
       });
 
       onSuccess();
       onClose();
     } catch (err: any) {
-      // Extract user-friendly error message
-      let errorMessage = 'Failed to mark attendance. Please try again.';
+      // Extract user-friendly error message with comprehensive error handling
+      let errorMessage = 'Unable to mark attendance. Please try again.';
       
-      if (err.response?.data?.message) {
-        errorMessage = err.response.data.message;
-      } else if (err.message) {
+      // Check for response data first (API errors)
+      if (err.response?.data) {
+        // Try message field first
+        if (err.response.data.message) {
+          errorMessage = err.response.data.message;
+        } 
+        // Try error field
+        else if (err.response.data.error) {
+          errorMessage = err.response.data.error;
+        }
+        // Try data.message nested
+        else if (err.response.data.data?.message) {
+          errorMessage = err.response.data.data.message;
+        }
+      } 
+      // Check error message directly
+      else if (err.message) {
         // Clean up technical error messages
-        errorMessage = err.message
+        let cleanedMessage = err.message
           .replace(/^Request failed with status code \d+$/i, '')
           .replace(/^Error: /i, '')
           .replace(/^AppError: /i, '')
-          .trim() || errorMessage;
+          .replace(/^AxiosError: /i, '')
+          .replace(/Network Error/i, 'Unable to connect to the server. Please check your internet connection.')
+          .replace(/timeout/i, 'The request took too long. Please try again.')
+          .replace(/ECONNREFUSED/i, 'Cannot connect to the server. Please ensure the server is running.')
+          .trim();
+        
+        if (cleanedMessage) {
+          errorMessage = cleanedMessage;
+        }
+      }
+      
+      // Map common error scenarios to user-friendly messages
+      const statusCode = err.response?.status;
+      if (statusCode === 400) {
+        // Bad request - validation errors are already user-friendly from backend
+        // Keep the message as is
+      } else if (statusCode === 401) {
+        errorMessage = 'Your session has expired. Please log in again.';
+      } else if (statusCode === 403) {
+        errorMessage = 'You do not have permission to perform this action.';
+      } else if (statusCode === 404) {
+        errorMessage = 'Employee not found. Please refresh the page and try again.';
+      } else if (statusCode === 409) {
+        errorMessage = 'This device has already been used by another employee today.';
+      } else if (statusCode === 500) {
+        errorMessage = 'A server error occurred. Please try again later or contact support.';
+      } else if (statusCode >= 500) {
+        errorMessage = 'Server error. Please try again later.';
+      } else if (!err.response) {
+        // Network error
+        errorMessage = 'Unable to connect to the server. Please check your internet connection and try again.';
       }
       
       setError(errorMessage);
@@ -222,6 +292,32 @@ export const MarkAttendanceDialog: React.FC<MarkAttendanceDialogProps> = ({
               <option value="check-out">Check Out</option>
             </select>
           </div>
+
+          {action === 'check-in' && (
+            <div className="form-group">
+              <label>Check-in Time</label>
+              <input
+                type="datetime-local"
+                value={checkInTime}
+                onChange={(e) => setCheckInTime(e.target.value)}
+                disabled={loading}
+              />
+              <small>Select the date and time to register for check-in. Leave empty to use current time.</small>
+            </div>
+          )}
+
+          {action === 'check-out' && (
+            <div className="form-group">
+              <label>Check-out Time</label>
+              <input
+                type="datetime-local"
+                value={checkOutTime}
+                onChange={(e) => setCheckOutTime(e.target.value)}
+                disabled={loading}
+              />
+              <small>Select the date and time to register for check-out. Leave empty to use current time.</small>
+            </div>
+          )}
 
           <div className="form-group">
             <label>Network Status</label>
@@ -314,7 +410,14 @@ export const MarkAttendanceDialog: React.FC<MarkAttendanceDialogProps> = ({
             <button type="button" onClick={onClose} disabled={loading}>
               Cancel
             </button>
-            <button type="submit" disabled={loading || (!networkValidation.isValid && !overrideReason.trim())}>
+            <button 
+              type="submit" 
+              disabled={
+                loading || 
+                networkValidation.loading ||
+                !networkValidation.isValid
+              }
+            >
               {loading ? 'Marking...' : `Mark ${action === 'check-in' ? 'Check In' : 'Check Out'}`}
             </button>
           </div>

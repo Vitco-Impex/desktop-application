@@ -82,7 +82,8 @@
 }
 
 .form-group select,
-.form-group textarea {
+.form-group textarea,
+.form-group input {
   width: 100%;
   padding: var(--spacing-sm) var(--spacing-md);
   border: var(--border-width) solid var(--color-border);
@@ -94,7 +95,8 @@
 }
 
 .form-group select:focus,
-.form-group textarea:focus {
+.form-group textarea:focus,
+.form-group input:focus {
   outline: none;
   border-color: var(--color-primary);
   box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);

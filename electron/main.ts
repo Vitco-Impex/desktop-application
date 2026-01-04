@@ -960,6 +960,24 @@ async function checkRecoveryCheckout(): Promise<void> {
 }
 
 
+// Function to check for updates (ensures window is ready)
+function checkForUpdates(): void {
+  if (isDev) {
+    console.log('[AutoUpdater] Skipping update check in development mode');
+    return;
+  }
+
+  if (!mainWindow) {
+    console.log('[AutoUpdater] Window not ready, will check after window is created');
+    return;
+  }
+
+  console.log('[AutoUpdater] Checking for updates...');
+  autoUpdater.checkForUpdates().catch((error) => {
+    console.error('[AutoUpdater] Error checking for updates:', error);
+  });
+}
+
 // Configure auto-updater
 function setupAutoUpdater(): void {
   // Disable auto-download (we'll handle it manually)
@@ -970,22 +988,23 @@ function setupAutoUpdater(): void {
   // No need to setFeedURL when using GitHub provider
   // electron-updater will automatically detect GitHub releases
 
-  // Check for updates on startup (only in production)
-  if (!isDev) {
-    // Check immediately after a short delay
-    setTimeout(() => {
-      autoUpdater.checkForUpdates();
-    }, 5000); // Wait 5 seconds after app starts
-
-    // Then check periodically (every 4 hours)
-    setInterval(() => {
-      autoUpdater.checkForUpdates();
-    }, 4 * 60 * 60 * 1000); // 4 hours
-  }
-
   // Handle update available
   autoUpdater.on('update-available', (info) => {
-    if (!mainWindow) return;
+    console.log('[AutoUpdater] Update available:', info.version);
+    
+    // Ensure window exists and is visible
+    if (!mainWindow) {
+      console.warn('[AutoUpdater] Window not available, cannot show update dialog');
+      return;
+    }
+
+    // Show and focus window if it's hidden or minimized
+    if (!mainWindow.isVisible() || mainWindow.isMinimized()) {
+      mainWindow.show();
+      mainWindow.restore();
+    }
+    mainWindow.focus();
+    mainWindow.moveTop();
 
     dialog
       .showMessageBox(mainWindow, {
@@ -999,36 +1018,71 @@ function setupAutoUpdater(): void {
       })
       .then((result) => {
         if (result.response === 0) {
+          console.log('[AutoUpdater] User chose to download update');
           autoUpdater.downloadUpdate();
+        } else {
+          console.log('[AutoUpdater] User chose to download later');
         }
+      })
+      .catch((error) => {
+        console.error('[AutoUpdater] Error showing update dialog:', error);
       });
   });
 
   // Handle update downloaded
   autoUpdater.on('update-downloaded', (info) => {
-    if (!mainWindow) return;
+    console.log('[AutoUpdater] Update downloaded:', info.version);
+    
+    // Ensure window exists and is visible
+    if (!mainWindow) {
+      console.warn('[AutoUpdater] Window not available, cannot show update ready dialog');
+      return;
+    }
+
+    // Show and focus window if it's hidden or minimized
+    if (!mainWindow.isVisible() || mainWindow.isMinimized()) {
+      mainWindow.show();
+      mainWindow.restore();
+    }
+    mainWindow.focus();
+    mainWindow.moveTop();
 
     dialog
       .showMessageBox(mainWindow, {
         type: 'info',
         title: 'Update Ready',
         message: 'Update downloaded. The application will restart to install the update.',
+        detail: `Version ${info.version} is ready to install.`,
         buttons: ['Restart Now', 'Later'],
         defaultId: 0,
         cancelId: 1,
       })
       .then((result) => {
         if (result.response === 0) {
+          console.log('[AutoUpdater] User chose to restart now');
           autoUpdater.quitAndInstall(false, true);
+        } else {
+          console.log('[AutoUpdater] User chose to restart later');
         }
+      })
+      .catch((error) => {
+        console.error('[AutoUpdater] Error showing update ready dialog:', error);
       });
   });
 
-  // Handle update errors (silently in production)
+  // Handle update not available
+  autoUpdater.on('update-not-available', (info) => {
+    console.log('[AutoUpdater] No update available. Current version:', info.version);
+  });
+
+  // Handle update check started
+  autoUpdater.on('checking-for-update', () => {
+    console.log('[AutoUpdater] Checking for updates...');
+  });
+
+  // Handle update errors (log in production for debugging)
   autoUpdater.on('error', (error) => {
-    if (isDev) {
-      console.error('Auto-updater error:', error);
-    }
+    console.error('[AutoUpdater] Error:', error.message || error);
   });
 }
 
@@ -1085,11 +1139,27 @@ if (!gotTheLock) {
     // Create system tray first
     createTray();
 
-    // Create main window
-    createWindow();
+  // Create main window
+  createWindow();
 
-    // Set main window reference for session service
-    sessionService.setMainWindow(mainWindow);
+  // Set main window reference for session service
+  sessionService.setMainWindow(mainWindow);
+
+  // Wait for window to be ready before checking for updates
+  if (mainWindow && !isDev) {
+    mainWindow.webContents.once('did-finish-load', () => {
+      console.log('[AutoUpdater] Window loaded, checking for updates in 3 seconds...');
+      // Wait a bit more for window to be fully ready, then check for updates
+      setTimeout(() => {
+        checkForUpdates();
+      }, 3000); // Wait 3 seconds after window loads
+
+      // Then check periodically (every 4 hours)
+      setInterval(() => {
+        checkForUpdates();
+      }, 4 * 60 * 60 * 1000); // 4 hours
+    });
+  }
 
     app.on('activate', () => {
       // On macOS, re-create window when dock icon is clicked
@@ -1654,4 +1724,5 @@ app.on('web-contents-created', (_, contents) => {
     }
   });
 });
+
 
