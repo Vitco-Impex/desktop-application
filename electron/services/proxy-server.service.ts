@@ -21,9 +21,13 @@ class ProxyServerService {
   private connectedClients: number = 0;
   private apiClient: AxiosInstance;
   private heartbeatInterval: NodeJS.Timeout | null = null;
+  private reregistrationInterval: NodeJS.Timeout | null = null;
   private mdnsService: any = null; // Bonjour service instance
   private currentIpAddress: string | null = null;
   private deviceName: string = '';
+  private isRegistered: boolean = false;
+  private lastRegistrationAttempt: Date | null = null;
+  private lastRegistrationError: string | null = null;
 
   constructor() {
     this.apiClient = axios.create({
@@ -42,23 +46,53 @@ class ProxyServerService {
       };
     }
 
-    // Get main server URL from API service
-    // The API service gets it from the renderer process
-    try {
-      const { BrowserWindow } = require('electron');
-      const mainWindow = BrowserWindow.getAllWindows()[0];
-      if (mainWindow) {
-        const url = await mainWindow.webContents.executeJavaScript(`
-          return window.__API_BASE_URL__ || 'http://127.0.0.1:3001/api/v1';
-        `);
-        // Replace localhost with 127.0.0.1 to force IPv4
-        this.mainServerUrl = url.replace(/localhost/g, '127.0.0.1');
-      } else {
+    // Get main server URL from renderer process (same approach as ApiService)
+    // First, try to get it from apiService instance if already set (more reliable)
+    const apiServiceBaseUrl = apiService.getInstance().defaults.baseURL;
+    if (apiServiceBaseUrl && apiServiceBaseUrl !== 'http://127.0.0.1:3001/api/v1') {
+      // apiService already has the correct URL
+      this.mainServerUrl = apiServiceBaseUrl as string;
+      console.log('[ProxyServer] Got API base URL from apiService:', this.mainServerUrl);
+    } else {
+      // Fallback: get it directly from renderer (same approach as ApiService)
+      try {
+        const { BrowserWindow } = require('electron');
+        const mainWindow = BrowserWindow.getAllWindows()[0];
+        
+        if (!mainWindow) {
+          console.warn('[ProxyServer] Main window not available, using default API URL');
+          this.mainServerUrl = 'http://127.0.0.1:3001/api/v1';
+        } else {
+          // Wait for window to be ready if needed
+          if (mainWindow.webContents.isLoading()) {
+            await new Promise<void>((resolve) => {
+              mainWindow.webContents.once('did-finish-load', () => resolve());
+            });
+          }
+
+          // Small delay to ensure renderer has set the global variable
+          await new Promise(resolve => setTimeout(resolve, 500));
+
+          const url = await mainWindow.webContents.executeJavaScript(`
+            (() => {
+              try {
+                return window.__API_BASE_URL__ || 'http://127.0.0.1:3001/api/v1';
+              } catch (error) {
+                console.error('Failed to get API base URL:', error);
+                return 'http://127.0.0.1:3001/api/v1';
+              }
+            })()
+          `);
+          
+          // Normalize URL: Replace localhost with 127.0.0.1 to force IPv4
+          this.mainServerUrl = url.replace(/localhost/g, '127.0.0.1');
+          console.log('[ProxyServer] Got API base URL from renderer (normalized):', this.mainServerUrl);
+        }
+      } catch (error: any) {
+        console.error('[ProxyServer] Failed to get API URL from renderer:', error);
+        console.warn('[ProxyServer] Using default API URL: http://127.0.0.1:3001/api/v1');
         this.mainServerUrl = 'http://127.0.0.1:3001/api/v1';
       }
-    } catch (error) {
-      console.warn('[ProxyServer] Failed to get API URL, using default:', error);
-      this.mainServerUrl = 'http://127.0.0.1:3001/api/v1';
     }
 
     // Get local IP address
@@ -87,8 +121,13 @@ class ProxyServerService {
         this.isRunning = true;
         
         try {
-          // Register with main server
-          await this.registerWithServer();
+          // Register with main server (with retry logic)
+          const registered = await this.registerWithServer();
+          if (registered) {
+            console.log(`[ProxyServer] ✅ Proxy server registered successfully`);
+          } else {
+            console.warn(`[ProxyServer] ⚠️ Proxy server running but not registered with main server`);
+          }
           
           // Register mDNS service
           await this.registerMdnsService();
@@ -96,10 +135,13 @@ class ProxyServerService {
           // Start heartbeat
           this.startHeartbeat();
           
-          console.log(`[ProxyServer] Started on ${this.currentIpAddress}:${this.port}`);
+          // Start periodic re-registration check (every 5 minutes)
+          this.startReregistrationCheck();
+          
+          console.log(`[ProxyServer] ✅ Started on ${this.currentIpAddress}:${this.port}`);
           resolve({ port: this.port, ipAddress: this.currentIpAddress });
         } catch (error: any) {
-          console.error('[ProxyServer] Failed to register proxy:', error);
+          console.error('[ProxyServer] ❌ Failed to start proxy:', error);
           // Still resolve - server is running, registration can be retried
           resolve({ port: this.port, ipAddress: this.currentIpAddress });
         }
@@ -122,12 +164,16 @@ class ProxyServerService {
     // Stop heartbeat
     this.stopHeartbeat();
     
+    // Stop re-registration check
+    this.stopReregistrationCheck();
+    
     // Unregister mDNS service
     await this.unregisterMdnsService();
     
     // Unregister from main server
     try {
       await this.unregisterFromServer();
+      this.isRegistered = false;
     } catch (error) {
       console.error('[ProxyServer] Failed to unregister from server:', error);
     }
@@ -139,6 +185,9 @@ class ProxyServerService {
           this.isRunning = false;
           this.connectedClients = 0;
           this.currentIpAddress = null;
+          this.isRegistered = false;
+          this.lastRegistrationAttempt = null;
+          this.lastRegistrationError = null;
           resolve();
         });
       } else {
@@ -255,27 +304,36 @@ class ProxyServerService {
 
   /**
    * Register proxy server with main server
+   * Includes retry logic with exponential backoff
    * Non-blocking - proxy will continue even if registration fails
    */
-  private async registerWithServer(): Promise<void> {
+  private async registerWithServer(retryCount: number = 0, maxRetries: number = 3): Promise<boolean> {
+    const startTime = Date.now();
+    this.lastRegistrationAttempt = new Date();
+    
     try {
       const user = await sessionService.getUser();
       if (!user || !user.id) {
-        console.warn('[ProxyServer] Cannot register - user not authenticated');
-        return;
+        console.warn('[ProxyServer] ❌ Cannot register - user not authenticated');
+        this.isRegistered = false;
+        return false;
       }
 
       // Get fresh session to ensure we have a valid token
       let session = await sessionService.getSessionFromRenderer();
       if (!session.isValid || !session.accessToken) {
-        console.warn('[ProxyServer] Cannot register - no valid session');
-        return;
+        console.warn('[ProxyServer] ❌ Cannot register - no valid session');
+        this.isRegistered = false;
+        return false;
       }
 
       let accessToken = session.accessToken;
 
       // Try to register with current token
       try {
+        console.log(`[ProxyServer] 🔄 Registering proxy server (attempt ${retryCount + 1}/${maxRetries + 1})...`);
+        console.log(`[ProxyServer] 📍 IP: ${this.currentIpAddress}, Port: ${this.port}, Device: ${this.deviceName}`);
+        
         const response = await this.apiClient.post(
           `${this.mainServerUrl}/proxy/register`,
           {
@@ -291,19 +349,31 @@ class ProxyServerService {
         );
 
         if (response.data.success) {
-          console.log('[ProxyServer] ✅ Registered with main server');
-          return;
+          const duration = Date.now() - startTime;
+          console.log(`[ProxyServer] ✅ Successfully registered with main server (took ${duration}ms)`);
+          this.isRegistered = true;
+          this.lastRegistrationError = null; // Clear error on success
+          return true;
         } else {
-          console.warn('[ProxyServer] Registration returned error:', response.data.message);
+          const errorMsg = response.data.message || 'Registration failed';
+          console.warn('[ProxyServer] ⚠️ Registration returned error:', errorMsg);
+          this.isRegistered = false;
+          this.lastRegistrationError = errorMsg;
+          
+          // Retry if we haven't exceeded max retries
+          if (retryCount < maxRetries) {
+            return await this.retryRegistration(retryCount, maxRetries);
+          }
+          return false;
         }
       } catch (error: any) {
         // If 401, try to refresh token and retry
         if (error.response?.status === 401) {
-          console.log('[ProxyServer] Token expired, attempting to refresh...');
+          console.log('[ProxyServer] 🔑 Token expired, attempting to refresh...');
           const newToken = await sessionService.refreshAccessToken();
           
           if (newToken) {
-            console.log('[ProxyServer] Token refreshed, retrying registration...');
+            console.log('[ProxyServer] ✅ Token refreshed, retrying registration...');
             try {
               const retryResponse = await this.apiClient.post(
                 `${this.mainServerUrl}/proxy/register`,
@@ -320,26 +390,112 @@ class ProxyServerService {
               );
 
               if (retryResponse.data.success) {
-                console.log('[ProxyServer] ✅ Registered with main server (after token refresh)');
-                return;
+                const duration = Date.now() - startTime;
+                console.log(`[ProxyServer] ✅ Registered with main server after token refresh (took ${duration}ms)`);
+                this.isRegistered = true;
+                this.lastRegistrationError = null; // Clear error on success
+                return true;
+              } else {
+                const errorMsg = retryResponse.data.message || 'Registration failed after token refresh';
+                console.warn('[ProxyServer] ⚠️ Registration failed after token refresh:', errorMsg);
+                this.isRegistered = false;
+                this.lastRegistrationError = errorMsg;
+                
+                // Retry if we haven't exceeded max retries
+                if (retryCount < maxRetries) {
+                  return await this.retryRegistration(retryCount, maxRetries);
+                }
+                return false;
               }
             } catch (retryError: any) {
-              console.warn('[ProxyServer] ⚠️ Registration failed after token refresh:', retryError.response?.data?.message || retryError.message);
+              const errorMsg = retryError.response?.data?.message || retryError.message || 'Registration failed after token refresh';
+              console.error('[ProxyServer] ❌ Registration failed after token refresh:', {
+                status: retryError.response?.status,
+                message: errorMsg,
+                code: retryError.code,
+              });
+              this.isRegistered = false;
+              this.lastRegistrationError = errorMsg;
+              
+              // Retry if we haven't exceeded max retries
+              if (retryCount < maxRetries) {
+                return await this.retryRegistration(retryCount, maxRetries);
+              }
+              return false;
             }
           } else {
+            const errorMsg = 'Failed to refresh authentication token';
             console.warn('[ProxyServer] ⚠️ Failed to refresh token. Proxy will still work via mDNS discovery.');
+            this.isRegistered = false;
+            this.lastRegistrationError = errorMsg;
+            return false;
           }
+        }
+        
+        // Log detailed error information
+        const errorDetails = {
+          attempt: retryCount + 1,
+          status: error.response?.status,
+          message: error.response?.data?.message || error.message,
+          code: error.code,
+          url: `${this.mainServerUrl}/proxy/register`,
+        };
+        console.error('[ProxyServer] ❌ Registration failed:', errorDetails);
+        
+        // Build user-friendly error message
+        let errorMessage = 'Registration failed';
+        if (error.response?.status === 401) {
+          errorMessage = 'Authentication failed - please log in again';
+        } else if (error.response?.status === 403) {
+          errorMessage = 'Permission denied - you may not have proxy permissions';
+        } else if (error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND') {
+          errorMessage = `Cannot reach server at ${this.mainServerUrl}`;
+        } else if (error.code === 'ETIMEDOUT' || error.code === 'ECONNABORTED') {
+          errorMessage = 'Connection timeout - server may be unreachable';
+        } else if (error.response?.data?.message) {
+          errorMessage = error.response.data.message;
+        } else if (error.message) {
+          errorMessage = error.message;
+        }
+        
+        this.lastRegistrationError = errorMessage;
+        this.isRegistered = false;
+        
+        // Retry if we haven't exceeded max retries
+        if (retryCount < maxRetries) {
+          return await this.retryRegistration(retryCount, maxRetries);
         }
         
         // Don't throw - allow proxy to run even if registration fails
         // mDNS discovery will still work
-        console.warn('[ProxyServer] ⚠️ Registration failed:', error.response?.data?.message || error.message, '- Proxy will still work via mDNS discovery.');
+        console.warn('[ProxyServer] ⚠️ Registration failed after all retries. Proxy will still work via mDNS discovery.');
+        return false;
       }
     } catch (error: any) {
       // Don't throw - allow proxy to run even if registration fails
       // mDNS discovery will still work
-      console.warn('[ProxyServer] ⚠️ Registration error:', error.message, '- Proxy will still work via mDNS discovery.');
+      const errorMsg = error.message || 'Unknown error during registration';
+      console.error('[ProxyServer] ❌ Registration error:', {
+        message: errorMsg,
+        stack: error.stack,
+      });
+      this.lastRegistrationError = errorMsg;
+      this.isRegistered = false;
+      return false;
     }
+  }
+
+  /**
+   * Retry registration with exponential backoff
+   */
+  private async retryRegistration(retryCount: number, maxRetries: number): Promise<boolean> {
+    // Exponential backoff: 1s, 2s, 4s
+    const delay = Math.min(1000 * Math.pow(2, retryCount), 4000);
+    console.log(`[ProxyServer] ⏳ Retrying registration in ${delay}ms...`);
+    
+    await new Promise(resolve => setTimeout(resolve, delay));
+    
+    return await this.registerWithServer(retryCount + 1, maxRetries);
   }
 
   /**
@@ -499,14 +655,65 @@ class ProxyServerService {
   }
 
   /**
+   * Start periodic re-registration check
+   * Checks every 5 minutes to handle IP address changes
+   */
+  private startReregistrationCheck(): void {
+    // Clear existing interval if any
+    this.stopReregistrationCheck();
+
+    // Check every 5 minutes
+    this.reregistrationInterval = setInterval(async () => {
+      if (!this.isRunning) {
+        return;
+      }
+
+      // Check if IP address has changed
+      const newIpAddress = await this.getLocalIPAddress();
+      if (newIpAddress && newIpAddress !== this.currentIpAddress) {
+        console.log(`[ProxyServer] 🔄 IP address changed from ${this.currentIpAddress} to ${newIpAddress}, re-registering...`);
+        this.currentIpAddress = newIpAddress;
+        await this.registerWithServer();
+      } else if (!this.isRegistered) {
+        // If not registered, try to register again
+        console.log('[ProxyServer] 🔄 Proxy not registered, attempting registration...');
+        await this.registerWithServer();
+      }
+    }, 5 * 60 * 1000); // 5 minutes
+  }
+
+  /**
+   * Stop periodic re-registration check
+   */
+  private stopReregistrationCheck(): void {
+    if (this.reregistrationInterval) {
+      clearInterval(this.reregistrationInterval);
+      this.reregistrationInterval = null;
+    }
+  }
+
+  /**
    * Get server status
    */
-  getStatus(): { isRunning: boolean; port: number; connectedClients: number; ipAddress: string | null } {
+  getStatus(): { 
+    isRunning: boolean; 
+    port: number; 
+    connectedClients: number; 
+    ipAddress: string | null;
+    isRegistered: boolean;
+    lastRegistrationAttempt: Date | null;
+    lastRegistrationError: string | null;
+    mainServerUrl: string;
+  } {
     return {
       isRunning: this.isRunning,
       port: this.port,
       connectedClients: this.connectedClients,
       ipAddress: this.currentIpAddress,
+      isRegistered: this.isRegistered,
+      lastRegistrationAttempt: this.lastRegistrationAttempt,
+      lastRegistrationError: this.lastRegistrationError,
+      mainServerUrl: this.mainServerUrl,
     };
   }
 }

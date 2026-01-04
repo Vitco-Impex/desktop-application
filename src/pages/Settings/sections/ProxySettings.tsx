@@ -41,6 +41,10 @@ export const ProxySettings: React.FC = () => {
             port: result.port || 3002,
             connectedClients: result.connectedClients || 0,
             ipAddress: result.isRunning ? (result.ipAddress || null) : null,
+            isRegistered: result.isRegistered,
+            lastRegistrationAttempt: result.lastRegistrationAttempt ? new Date(result.lastRegistrationAttempt).toISOString() : null,
+            lastRegistrationError: result.lastRegistrationError || null,
+            mainServerUrl: result.mainServerUrl || null,
           });
         }
       } catch (err) {
@@ -204,7 +208,8 @@ export const ProxySettings: React.FC = () => {
             {serverStatus.ipAddress && (
               <div className="status-item">
                 <span className="status-label">IP Address:</span>
-                <span className="status-value">{serverStatus.ipAddress}</span>
+                <span className="status-value status-ip">{serverStatus.ipAddress}</span>
+                <span className="status-copy-hint" title="Mobile devices can connect to this IP">📋</span>
               </div>
             )}
             <div className="status-item">
@@ -212,9 +217,40 @@ export const ProxySettings: React.FC = () => {
               <span className="status-value">{serverStatus.port}</span>
             </div>
             <div className="status-item">
+              <span className="status-label">Registration Status:</span>
+              <span className={`status-value ${serverStatus.isRegistered ? 'status-registered' : 'status-not-registered'}`}>
+                {serverStatus.isRegistered ? '✅ Registered' : '⚠️ Not Registered'}
+              </span>
+            </div>
+            {serverStatus.lastRegistrationAttempt && (
+              <div className="status-item">
+                <span className="status-label">Last Registration:</span>
+                <span className="status-value status-time">
+                  {new Date(serverStatus.lastRegistrationAttempt).toLocaleString()}
+                </span>
+              </div>
+            )}
+            <div className="status-item">
               <span className="status-label">Connected Clients:</span>
               <span className="status-value">{serverStatus.connectedClients}</span>
             </div>
+            {!serverStatus.isRegistered && serverStatus.isRunning && (
+              <div className="status-warning">
+                <p>⚠️ Proxy server is running but not registered with the main server. Mobile devices may not be able to discover it automatically.</p>
+                {serverStatus.lastRegistrationError && (
+                  <p className="status-error-detail">
+                    <strong>Error:</strong> {serverStatus.lastRegistrationError}
+                  </p>
+                )}
+                {serverStatus.mainServerUrl && (
+                  <p className="status-hint">
+                    <strong>Server URL:</strong> {serverStatus.mainServerUrl}
+                  </p>
+                )}
+                <p className="status-hint">Ensure you are connected to the internet and logged in to the application.</p>
+                <p className="status-hint">Mobile devices can still discover the proxy via mDNS or IP scanning if on the same WiFi network.</p>
+              </div>
+            )}
           </div>
         )}
       </div>

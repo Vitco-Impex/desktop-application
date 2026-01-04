@@ -195,3 +195,60 @@
   color: #34c759;
 }
 
+.status-registered {
+  color: #34c759;
+}
+
+.status-not-registered {
+  color: #ff9500;
+}
+
+.status-ip {
+  font-family: 'Courier New', monospace;
+  color: var(--color-primary);
+}
+
+.status-time {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+}
+
+.status-copy-hint {
+  margin-left: 8px;
+  font-size: 14px;
+  cursor: help;
+}
+
+.status-warning {
+  grid-column: 1 / -1;
+  background: #fff3cd;
+  border: 1px solid #ffc107;
+  border-radius: 6px;
+  padding: 12px;
+  margin-top: 8px;
+}
+
+.status-warning p {
+  margin: 4px 0;
+  font-size: 13px;
+  color: #856404;
+}
+
+.status-hint {
+  font-size: 12px;
+  color: #856404;
+  font-style: italic;
+  margin-top: 8px;
+}
+
+.status-error-detail {
+  font-size: 13px;
+  color: #721c24;
+  background: #f8d7da;
+  border: 1px solid #f5c6cb;
+  border-radius: 4px;
+  padding: 8px;
+  margin: 8px 0;
+  font-weight: 500;
+}
+

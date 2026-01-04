@@ -65,7 +65,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return ipcRenderer.invoke('proxy:stop');
   },
   
-  getProxyStatus: (): Promise<{ success: boolean; isRunning?: boolean; port?: number; connectedClients?: number; ipAddress?: string | null; error?: string }> => {
+  getProxyStatus: (): Promise<{ success: boolean; isRunning?: boolean; port?: number; connectedClients?: number; ipAddress?: string | null; isRegistered?: boolean; lastRegistrationAttempt?: Date | null; lastRegistrationError?: string | null; mainServerUrl?: string; error?: string }> => {
     return ipcRenderer.invoke('proxy:status');
   },
 });

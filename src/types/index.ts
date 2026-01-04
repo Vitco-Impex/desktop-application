@@ -58,6 +58,10 @@ export interface ProxyServerStatus {
   port: number;
   ipAddress: string | null;
   connectedClients: number;
+  isRegistered?: boolean;
+  lastRegistrationAttempt?: string | null;
+  lastRegistrationError?: string | null;
+  mainServerUrl?: string;
 }
 
 // Attendance enums
