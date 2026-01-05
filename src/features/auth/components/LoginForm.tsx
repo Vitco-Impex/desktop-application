@@ -16,19 +16,24 @@ export const LoginForm: React.FC = () => {
   const navigate = useNavigate();
   const login = authStore((state) => state.login);
 
-  const [formData, setFormData] = useState<LoginRequest>({
-    email: '',
-    password: '',
-  });
+  const [identifier, setIdentifier] = useState<string>('');
+  const [password, setPassword] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+  // Helper function to detect if input is email or phone number
+  const isEmailFormat = (input: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(input.trim());
+  };
+
+  const handleIdentifierChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setIdentifier(e.target.value);
+    setError(null);
+  };
+
+  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setPassword(e.target.value);
     setError(null);
   };
 
@@ -38,7 +43,19 @@ export const LoginForm: React.FC = () => {
     setLoading(true);
 
     try {
-      const response = await authService.login(formData);
+      // Prepare login request based on input format
+      const loginRequest: LoginRequest = {
+        password,
+      };
+
+      if (isEmailFormat(identifier)) {
+        loginRequest.email = identifier.trim();
+      } else {
+        // Normalize phone number (remove spaces, dashes, parentheses)
+        loginRequest.phoneNumber = identifier.replace(/[\s\-\(\)]/g, '');
+      }
+
+      const response = await authService.login(loginRequest);
       login(response.user, response.accessToken, response.refreshToken, response.sessionId);
 
       const roleRoutes: Record<string, string> = {
@@ -55,7 +72,7 @@ export const LoginForm: React.FC = () => {
         err.response?.data?.message ||
         err.response?.data?.error ||
         err.message ||
-        'Invalid email or password. Please try again.';
+        'Invalid email/phone number or password. Please try again.';
       
       setError(errorMessage);
     } finally {
@@ -75,23 +92,23 @@ export const LoginForm: React.FC = () => {
           {error && <div className="error-message">{error}</div>}
 
           <Input
-            label="Email Address"
-            type="email"
-            name="email"
-            value={formData.email}
-            onChange={handleChange}
+            label="Email or Phone Number"
+            type="text"
+            name="identifier"
+            value={identifier}
+            onChange={handleIdentifierChange}
             required
-            autoComplete="email"
-            placeholder="Enter your email"
-            error={error && formData.email ? undefined : undefined}
+            autoComplete="username"
+            placeholder="Enter your email or phone number"
+            error={error ? undefined : undefined}
           />
 
           <Input
             label="Password"
             type="password"
             name="password"
-            value={formData.password}
-            onChange={handleChange}
+            value={password}
+            onChange={handlePasswordChange}
             required
             autoComplete="current-password"
             placeholder="Enter your password"

@@ -229,12 +229,29 @@ export const EmployeeManagement: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
+      setSuccess(null);
+      
       await employeeService.deleteEmployee(employee.id);
+      
       setSuccess('Employee deleted successfully');
       await loadEmployees();
       setTimeout(() => setSuccess(null), 3000);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to delete employee');
+      console.error('[EmployeeManagement] Delete error:', err);
+      
+      // Extract error message from various possible locations
+      const errorMessage = 
+        err.response?.data?.error ||
+        err.response?.data?.message ||
+        err.message ||
+        'Failed to delete employee';
+      
+      setError(errorMessage);
+      console.error('[EmployeeManagement] Error details:', {
+        status: err.response?.status,
+        data: err.response?.data,
+        message: errorMessage,
+      });
     } finally {
       setLoading(false);
     }

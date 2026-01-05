@@ -6,7 +6,9 @@
 import React, { useState, useEffect } from 'react';
 import { attendanceService } from '@/services/attendance.service';
 import { wifiService } from '@/services/wifi.service';
-import { AttendanceSessionStatus, AttendanceSource } from '@/types';
+import { shiftService } from '@/services/shift.service';
+import { authStore } from '@/store/authStore';
+import { AttendanceSessionStatus, AttendanceSource, UserRole } from '@/types';
 import { NetworkInfo } from '@/types/electron';
 import './MarkAttendanceDialog.css';
 
@@ -58,6 +60,7 @@ export const MarkAttendanceDialog: React.FC<MarkAttendanceDialogProps> = ({
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { user } = authStore();
 
   useEffect(() => {
     if (isOpen) {
@@ -189,6 +192,25 @@ export const MarkAttendanceDialog: React.FC<MarkAttendanceDialogProps> = ({
         return;
       }
 
+      // Validate manual check-in rule if action is check-in and user is not Admin
+      if (action === 'check-in' && user?.role !== UserRole.ADMIN) {
+        try {
+          const shiftAssignment = await shiftService.getEmployeeShift(employeeIdString);
+          if (shiftAssignment?.shiftId) {
+            const shift = await shiftService.getShift(shiftAssignment.shiftId);
+            if (shift && shift.checkInRules && !shift.checkInRules.allowManualCheckIn) {
+              setError('Manual check-in is not allowed for this employee\'s shift. Please contact the administrator to enable manual check-ins for this shift.');
+              setLoading(false);
+              return;
+            }
+          }
+        } catch (shiftError: any) {
+          // If shift lookup fails, log but don't block (backend will validate anyway)
+          console.warn('[MarkAttendanceDialog] Failed to validate shift rule:', shiftError);
+          // Continue - backend will validate and return appropriate error
+        }
+      }
+
       // Convert datetime-local values to ISO strings if provided
       const checkInTimeISO = checkInTime ? new Date(checkInTime).toISOString() : undefined;
       const checkOutTimeISO = checkOutTime ? new Date(checkOutTime).toISOString() : undefined;
@@ -244,9 +266,17 @@ export const MarkAttendanceDialog: React.FC<MarkAttendanceDialogProps> = ({
       
       // Map common error scenarios to user-friendly messages
       const statusCode = err.response?.status;
-      if (statusCode === 400) {
+      
+      // Check for specific error codes from backend
+      if (err.response?.data?.errorCode === 'MANUAL_CHECKIN_NOT_ALLOWED' || 
+          err.response?.data?.message?.includes('Manual check-in is not allowed')) {
+        errorMessage = 'Manual check-in is not allowed for this employee\'s shift. Please contact the administrator to enable manual check-ins for this shift.';
+      } else if (statusCode === 400) {
         // Bad request - validation errors are already user-friendly from backend
-        // Keep the message as is
+        // Keep the message as is, but check for manual check-in error
+        if (err.response?.data?.message?.includes('Manual check-in is not allowed')) {
+          errorMessage = err.response.data.message;
+        }
       } else if (statusCode === 401) {
         errorMessage = 'Your session has expired. Please log in again.';
       } else if (statusCode === 403) {

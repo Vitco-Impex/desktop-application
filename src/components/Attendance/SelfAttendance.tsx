@@ -14,9 +14,8 @@ import {
   AttendanceSource,
   AttendanceStatusResponse,
   AttendanceRecord,
-  UserRole,
 } from '@/types';
-import { WifiInfo, NetworkInfo } from '@/types/electron';
+import { NetworkInfo } from '@/types/electron';
 import './SelfAttendance.css';
 
 interface SelfAttendanceProps {
@@ -288,8 +287,8 @@ export const SelfAttendance: React.FC<SelfAttendanceProps> = ({ canMarkAttendanc
         }
       }
 
-      const record = await attendanceService.checkOut(checkOutRequest);
-      setTodayRecord(record);
+      const result = await attendanceService.checkOut(checkOutRequest);
+      setTodayRecord(result.record);
       await loadStatus();
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to check out');
@@ -456,6 +455,12 @@ export const SelfAttendance: React.FC<SelfAttendanceProps> = ({ canMarkAttendanc
       {!canMarkAttendance && (
         <div className="self-attendance-info">
           <p>Attendance marking is not available for your role. You can view attendance records only.</p>
+        </div>
+      )}
+      
+      {status.status === AttendanceSessionStatus.CHECKED_OUT && status.allowMultipleCheckIns && (
+        <div className="self-attendance-info" style={{ backgroundColor: '#f0f9ff', borderLeftColor: '#3b82f6' }}>
+          <p>ℹ️ Multiple check-ins are allowed for your shift. You can check in again if needed.</p>
         </div>
       )}
     </div>

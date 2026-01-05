@@ -33,7 +33,8 @@ export interface AuthState {
 }
 
 export interface LoginRequest {
-  email: string;
+  email?: string;
+  phoneNumber?: string;
   password: string;
 }
 
@@ -96,6 +97,7 @@ export interface AttendanceStatusResponse {
   today?: AttendanceRecord;
   canCheckIn: boolean;
   canCheckOut: boolean;
+  allowMultipleCheckIns?: boolean; // Whether multiple check-ins per day are allowed for the shift
 }
 
 export interface CheckInRequest {
