@@ -6,12 +6,14 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authStore } from '@/store/authStore';
 import { authService } from '@/services/auth.service';
+import { companyStore } from '@/store/companyStore';
 import { LoginRequest } from '@/types';
 import './LoginForm.css';
 
 export const LoginForm: React.FC = () => {
   const navigate = useNavigate();
   const login = authStore((state) => state.login);
+  const { company } = companyStore();
 
   const [formData, setFormData] = useState<LoginRequest>({
     email: '',
@@ -65,7 +67,7 @@ export const LoginForm: React.FC = () => {
     <div className="login-container">
       <div className="login-card">
         <div className="login-header">
-          <h1>vitco Desktop</h1>
+          <h1>{company?.displayName || 'Company OS Desktop'}</h1>
           <p>Sign in to your account</p>
         </div>
 

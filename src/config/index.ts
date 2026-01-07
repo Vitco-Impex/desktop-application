@@ -1,14 +1,10 @@
-/**
- * Application Configuration
- */
-
 export const config = {
   api: {
     baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api/v1',
     timeout: 30000,
   },
   app: {
-    name: 'vitco Desktop',
+    name: 'Company OS Desktop',
     version: '1.0.0',
   },
   updates: {
@@ -16,4 +12,3 @@ export const config = {
     checkInterval: 3600000, // Check every hour (1 hour in milliseconds)
   },
 };
-

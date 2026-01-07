@@ -5,6 +5,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authStore } from '@/store/authStore';
+import { companyStore } from '@/store/companyStore';
 import { authService } from '@/services/auth.service';
 import { LoginRequest } from '@/types';
 import { Input } from '@/shared/components/ui';
@@ -15,6 +16,7 @@ import './LoginForm.css';
 export const LoginForm: React.FC = () => {
   const navigate = useNavigate();
   const login = authStore((state) => state.login);
+  const { company } = companyStore();
 
   const [identifier, setIdentifier] = useState<string>('');
   const [password, setPassword] = useState<string>('');
@@ -84,7 +86,7 @@ export const LoginForm: React.FC = () => {
     <div className="login-container">
       <Card className="login-card" padding="lg">
         <div className="login-header">
-          <h1>vitco Desktop</h1>
+          <h1>{company?.displayName || 'Company OS Desktop'}</h1>
           <p>Sign in to your account</p>
         </div>
 

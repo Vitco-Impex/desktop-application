@@ -5,6 +5,18 @@
 import { api } from './api';
 import { User, UserRole, EmployeeDetails, UpdateEmployeeDetailsRequest } from '@/types';
 
+export interface ActiveSessionInfo {
+  userId: string;
+  email: string;
+  name: string;
+  sessionId: string;
+  deviceFingerprint?: string;
+  ipAddress?: string;
+  userAgent?: string;
+  lastActivityAt: string;
+  expiresAt: string;
+}
+
 export interface CreateEmployeeRequest {
   email: string;
   name: string;
@@ -113,6 +125,21 @@ class EmployeeService {
    */
   async getAllProxyEnabledUsers(): Promise<User[]> {
     const response = await api.get('/employees/proxy-enabled');
+    return response.data.data;
+  }
+
+  /**
+   * Force logout a specific user (admin only)
+   */
+  async logoutEmployee(userId: string): Promise<void> {
+    await api.post(`/auth/logout/${userId}`);
+  }
+
+  /**
+   * Get all active sessions (admin/HR only)
+   */
+  async getActiveSessions(): Promise<ActiveSessionInfo[]> {
+    const response = await api.get('/auth/sessions');
     return response.data.data;
   }
 }

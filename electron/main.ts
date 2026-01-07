@@ -186,7 +186,7 @@ function createTray(): void {
   // Create context menu
   const contextMenu = Menu.buildFromTemplate([
     {
-      label: 'Show vitco Desktop',
+      label: 'Show Company OS Desktop',
       click: () => {
         if (mainWindow) {
           mainWindow.show();
@@ -230,7 +230,7 @@ function createTray(): void {
     },
   ]);
 
-  tray.setToolTip('vitco Desktop');
+  tray.setToolTip('Company OS Desktop');
   tray.setContextMenu(contextMenu);
 
   // Double-click to show window
@@ -277,7 +277,7 @@ function setupAutoStart(): void {
     app.setLoginItemSettings({
       openAtLogin: autoStartEnabled,
       openAsHidden: true, // Start minimized to tray
-      name: 'vitco Desktop',
+      name: 'Company OS Desktop',
       args: ['--hidden'], // Hidden flag for startup
     });
   } catch (error) {
@@ -1120,7 +1120,7 @@ if (!gotTheLock) {
 
       // Set app user model ID for Windows (helps with taskbar icon)
       if (process.platform === 'win32') {
-        app.setAppUserModelId('com.vitco.desktop');
+        app.setAppUserModelId('com.companyos.desktop');
       }
     }
 

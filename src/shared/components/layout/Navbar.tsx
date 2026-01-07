@@ -5,6 +5,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { authStore } from '@/store/authStore';
+import { companyStore } from '@/store/companyStore';
 import { UserRole } from '@/types';
 import './Navbar.css';
 
@@ -28,6 +29,7 @@ export const Navbar: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = authStore();
+  const { company } = companyStore();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -138,11 +140,19 @@ export const Navbar: React.FC = () => {
             onClick={handleLogoClick}
             aria-label="Go to Dashboard"
           >
-            <img 
-              src="./assets/logo.png" 
-              alt="vitco Logo" 
-              className="navbar-logo-img"
-            />
+            {company?.logoUrl ? (
+              <img
+                src={company.logoUrl}
+                alt={`${company.displayName || 'Company OS'} Logo`}
+                className="navbar-logo-img"
+              />
+            ) : (
+              <img
+                src="./assets/logo.png"
+                alt="Company OS Logo"
+                className="navbar-logo-img"
+              />
+            )}
           </button>
         </div>
 
@@ -177,7 +187,9 @@ export const Navbar: React.FC = () => {
               aria-label="User menu"
             >
               <div className="navbar-user-info">
-                <span className="navbar-user-name">{user?.name}</span>
+                <span className="navbar-user-name">
+                  {company?.displayName || 'Company OS'}
+                </span>
                 <span className="navbar-user-role">{user?.role}</span>
               </div>
             </button>

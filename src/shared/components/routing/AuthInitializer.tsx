@@ -5,15 +5,19 @@
 
 import React, { useEffect, useState } from 'react';
 import { authStore } from '@/store/authStore';
+import { companyStore } from '@/store/companyStore';
 
 export const AuthInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isInitialized, setIsInitialized] = useState(false);
   const initializeAuth = authStore((state) => state.initializeAuth);
   const isInitializing = authStore((state) => state.isInitializing);
+  const loadCompany = companyStore((state) => state.loadCompany);
 
   useEffect(() => {
     const init = async () => {
       await initializeAuth();
+      // Load company profile after auth, so we have tokens
+      await loadCompany();
       setIsInitialized(true);
     };
 

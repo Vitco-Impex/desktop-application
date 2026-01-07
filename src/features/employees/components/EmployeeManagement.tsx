@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { employeeService, CreateEmployeeRequest, UpdateEmployeeRequest } from '@/services/employee.service';
+import { employeeService, CreateEmployeeRequest, UpdateEmployeeRequest, ActiveSessionInfo } from '@/services/employee.service';
 import { employeeDetailsService } from '@/services/employee.service';
 import { shiftService } from '@/services/shift.service';
 import { User, UserRole, EmployeeDetails, UpdateEmployeeDetailsRequest } from '@/types';
@@ -25,6 +25,7 @@ type ViewMode = 'list' | 'details' | 'add';
 export const EmployeeManagement: React.FC = () => {
   const { user: currentUser } = authStore();
   const [employees, setEmployees] = useState<User[]>([]);
+  const [activeSessions, setActiveSessions] = useState<ActiveSessionInfo[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -64,6 +65,7 @@ export const EmployeeManagement: React.FC = () => {
 
   useEffect(() => {
     loadEmployees();
+    loadActiveSessions();
   }, []);
 
   useEffect(() => {
@@ -101,6 +103,15 @@ export const EmployeeManagement: React.FC = () => {
       setError(err.response?.data?.message || 'Failed to load employees');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadActiveSessions = async () => {
+    try {
+      const sessions = await employeeService.getActiveSessions();
+      setActiveSessions(sessions);
+    } catch (err) {
+      console.error('[EmployeeManagement] Failed to load active sessions:', err);
     }
   };
 
@@ -257,6 +268,38 @@ export const EmployeeManagement: React.FC = () => {
     }
   };
 
+  const handleLogoutEmployee = async (employee: User) => {
+    if (!window.confirm(`Logout ${employee.name} from all active sessions?`)) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+      setSuccess(null);
+
+      await employeeService.logoutEmployee(employee.id);
+      setSuccess('Employee logged out successfully');
+
+      await loadActiveSessions();
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err: any) {
+      console.error('[EmployeeManagement] Logout employee error:', err);
+      const errorMessage =
+        err.response?.data?.error ||
+        err.response?.data?.message ||
+        err.message ||
+        'Failed to logout employee';
+      setError(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const isEmployeeOnline = (employeeId: string): boolean => {
+    return activeSessions.some((session) => session.userId === employeeId);
+  };
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({
@@ -342,8 +385,29 @@ export const EmployeeManagement: React.FC = () => {
   return (
     <div className="employee-management-page">
       <div className="employee-management-header">
-        <h1 className="employee-management-title">Employee Management</h1>
-        <p className="employee-management-subtitle">Create, edit, and manage employees</p>
+        <div>
+          <h1 className="employee-management-title">Employee Management</h1>
+          <p className="employee-management-subtitle">
+            Create, edit, and manage employees. View who is currently online and logout users if needed.
+          </p>
+        </div>
+        <div className="employee-management-header-actions">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={async () => {
+              setLoading(true);
+              try {
+                await Promise.all([loadEmployees(), loadActiveSessions()]);
+              } finally {
+                setLoading(false);
+              }
+            }}
+            disabled={loading}
+          >
+            Refresh
+          </Button>
+        </div>
       </div>
 
       <div className="employee-management-container">
@@ -381,6 +445,7 @@ export const EmployeeManagement: React.FC = () => {
                     <th>Role</th>
                     <th>Department</th>
                     <th>Employee ID</th>
+                    <th>Status</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
@@ -400,27 +465,48 @@ export const EmployeeManagement: React.FC = () => {
                           <span className={`role-badge role-badge--${employee.role}`}>{employee.role}</span>
                         </td>
                         <td>{employee.department || '-'}</td>
-                        <td>{employee.employeeId || '-'}</td>
-                        <td>
-                          <div className="table-actions">
+                      <td>{employee.employeeId || '-'}</td>
+                      <td>
+                        {isEmployeeOnline(employee.id) ? (
+                          <span className="status-badge status-badge--online">
+                            <span className="status-dot" /> Online
+                          </span>
+                        ) : (
+                          <span className="status-badge status-badge--offline">
+                            <span className="status-dot" /> Offline
+                          </span>
+                        )}
+                      </td>
+                      <td>
+                        <div className="table-actions">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleEditEmployee(employee.id)}
+                            disabled={loading}
+                          >
+                            Edit
+                          </Button>
+                          {isEmployeeOnline(employee.id) && (
                             <Button
-                              variant="ghost"
+                              variant="secondary"
                               size="sm"
-                              onClick={() => handleEditEmployee(employee.id)}
+                              onClick={() => handleLogoutEmployee(employee)}
                               disabled={loading}
                             >
-                              Edit
+                              Logout
                             </Button>
-                            <Button
-                              variant="danger"
-                              size="sm"
-                              onClick={() => handleDelete(employee)}
-                              disabled={loading}
-                            >
-                              Delete
-                            </Button>
-                          </div>
-                        </td>
+                          )}
+                          <Button
+                            variant="danger"
+                            size="sm"
+                            onClick={() => handleDelete(employee)}
+                            disabled={loading}
+                          >
+                            Delete
+                          </Button>
+                        </div>
+                      </td>
                       </tr>
                     ))
                   )}

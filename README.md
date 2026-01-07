@@ -1,6 +1,6 @@
-# vitco Desktop Application
+# Company OS Desktop Application
 
-A desktop application built with Electron and React for the vitco system.
+A desktop application built with Electron and React for the Company OS system.
 
 ## Features
 

@@ -11,6 +11,9 @@
   margin-bottom: var(--spacing-lg);
   padding-bottom: var(--spacing-md);
   border-bottom: var(--border-width) solid var(--color-border-light);
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
 }
 
 .employee-management-title {
@@ -24,6 +27,12 @@
   font-size: var(--font-size-base);
   color: var(--color-text-secondary);
   margin: 0;
+}
+
+.employee-management-header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
 }
 
 .employee-management-container {
@@ -244,6 +253,28 @@
 .table-actions {
   display: flex;
   gap: var(--spacing-xs);
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--font-size-small);
+}
+
+.status-badge--online {
+  color: #16a34a;
+}
+
+.status-badge--offline {
+  color: #6b7280;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background-color: currentColor;
 }
 
 /* Employee Details Styles */
