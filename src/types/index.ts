@@ -16,6 +16,7 @@ export interface User {
   name: string;
   role: UserRole;
   department?: string;
+  branchId?: string;
   phoneNumber?: string;
   address?: string;
   employeeId?: string;
@@ -171,6 +172,46 @@ export interface AttendanceDashboardData {
 // Re-export shift types
 export * from './shift';
 
+// Branch types
+export interface Branch {
+  id: string;
+  name: string;
+  code: string;
+  address?: string;
+  phone?: string;
+  email?: string;
+  branchManager?: {
+    id: string;
+    name: string;
+    email: string;
+  };
+  departments: string[];
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateBranchRequest {
+  name: string;
+  code: string;
+  address?: string;
+  phone?: string;
+  email?: string;
+  branchManager?: string; // User ID
+  departments?: string[];
+}
+
+export interface UpdateBranchRequest {
+  name?: string;
+  code?: string;
+  address?: string;
+  phone?: string;
+  email?: string;
+  branchManager?: string; // User ID
+  departments?: string[];
+  isActive?: boolean;
+}
+
 // Employee Details enums and types
 export enum EmploymentType {
   FULL_TIME = 'full_time',
@@ -202,6 +243,7 @@ export interface EmployeeDetails {
   role: UserRole;
   designation?: string;
   department?: string;
+  branchId?: string;
   reportingManager?: {
     id: string;
     name: string;
@@ -263,6 +305,7 @@ export interface UpdateEmployeeDetailsRequest {
   role?: UserRole;
   designation?: string;
   department?: string;
+  branchId?: string;
   reportingManagerId?: string;
   employmentType?: EmploymentType;
   dateOfJoining?: string;

@@ -55,6 +55,7 @@ export const EmployeeManagement: React.FC = () => {
     password: '',
     role: UserRole.EMPLOYEE,
     department: '',
+    branchId: '',
     phoneNumber: '',
     employeeId: '',
     designation: '',
@@ -62,11 +63,26 @@ export const EmployeeManagement: React.FC = () => {
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [selectedShiftId, setSelectedShiftId] = useState<string>('');
   const [loadingShifts, setLoadingShifts] = useState(false);
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [loadingBranches, setLoadingBranches] = useState(false);
 
   useEffect(() => {
     loadEmployees();
     loadActiveSessions();
+    loadBranches();
   }, []);
+
+  const loadBranches = async () => {
+    try {
+      setLoadingBranches(true);
+      const data = await branchService.getBranches({ isActive: true });
+      setBranches(data);
+    } catch (err) {
+      console.error('Failed to load branches:', err);
+    } finally {
+      setLoadingBranches(false);
+    }
+  };
 
   useEffect(() => {
     if (viewMode === 'add') {
@@ -154,6 +170,7 @@ export const EmployeeManagement: React.FC = () => {
       password: '',
       role: UserRole.EMPLOYEE,
       department: '',
+      branchId: '',
       phoneNumber: '',
       employeeId: '',
       designation: '',
@@ -444,6 +461,7 @@ export const EmployeeManagement: React.FC = () => {
                     <th>Email</th>
                     <th>Role</th>
                     <th>Department</th>
+                    <th>Branch</th>
                     <th>Employee ID</th>
                     <th>Status</th>
                     <th>Actions</th>
@@ -465,6 +483,7 @@ export const EmployeeManagement: React.FC = () => {
                           <span className={`role-badge role-badge--${employee.role}`}>{employee.role}</span>
                         </td>
                         <td>{employee.department || '-'}</td>
+                        <td>{employee.branchId ? branches.find(b => b.id === employee.branchId)?.name || '-' : '-'}</td>
                       <td>{employee.employeeId || '-'}</td>
                       <td>
                         {isEmployeeOnline(employee.id) ? (

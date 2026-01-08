@@ -23,6 +23,7 @@ export interface CreateEmployeeRequest {
   password: string;
   role: UserRole;
   department?: string;
+  branchId?: string;
   phoneNumber?: string;
   address?: string;
   employeeId?: string;
@@ -42,6 +43,7 @@ export interface UpdateEmployeeRequest {
   email?: string;
   role?: UserRole;
   department?: string;
+  branchId?: string;
   phoneNumber?: string;
   address?: string;
   employeeId?: string;

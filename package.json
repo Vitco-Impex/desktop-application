@@ -1,6 +1,6 @@
 {
   "name": "company-os-desktop",
-  "version": "1.8.0",
+  "version": "1.10.0",
   "description": "Company OS Desktop Application",
   "main": "dist-electron/main.js",
   "author": {

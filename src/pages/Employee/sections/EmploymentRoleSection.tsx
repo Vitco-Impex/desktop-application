@@ -3,10 +3,11 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { EmployeeDetails, UpdateEmployeeDetailsRequest, UserRole, EmploymentType, User } from '@/types';
+import { EmployeeDetails, UpdateEmployeeDetailsRequest, UserRole, EmploymentType, User, Branch } from '@/types';
 import { SectionWrapper } from '@/components/EmployeeDetails/SectionWrapper';
 import { InlineEditField } from '@/components/EmployeeDetails/InlineEditField';
 import { employeeService } from '@/services/employee.service';
+import { branchService } from '@/services/branch.service';
 import './EmploymentRoleSection.css';
 
 interface EmploymentRoleSectionProps {
@@ -28,12 +29,27 @@ export const EmploymentRoleSection: React.FC<EmploymentRoleSectionProps> = ({
 }) => {
   const [managers, setManagers] = useState<User[]>([]);
   const [loadingManagers, setLoadingManagers] = useState(false);
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [loadingBranches, setLoadingBranches] = useState(false);
 
   useEffect(() => {
     if (isExpanded && canEdit) {
       loadManagers();
+      loadBranches();
     }
   }, [isExpanded, canEdit]);
+
+  const loadBranches = async () => {
+    try {
+      setLoadingBranches(true);
+      const data = await branchService.getBranches({ isActive: true });
+      setBranches(data);
+    } catch (error) {
+      console.error('Failed to load branches:', error);
+    } finally {
+      setLoadingBranches(false);
+    }
+  };
 
   const loadManagers = async () => {
     try {
@@ -130,6 +146,34 @@ export const EmploymentRoleSection: React.FC<EmploymentRoleSectionProps> = ({
             disabled={!canEdit}
             placeholder="Enter department"
           />
+
+          {canEdit ? (
+            <div className="form-field">
+              <label className="field-label">Branch</label>
+              <select
+                className="form-select"
+                value={employee.branchId || ''}
+                onChange={(e) => handleBranchChange(e.target.value)}
+                disabled={!canEdit || loadingBranches}
+              >
+                <option value="">None</option>
+                {branches.map((branch) => (
+                  <option key={branch.id} value={branch.id}>
+                    {branch.name} ({branch.code})
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            <div className="form-field">
+              <label className="field-label">Branch</label>
+              <div className="field-value read-only">
+                {employee.branchId
+                  ? branches.find((b) => b.id === employee.branchId)?.name || '—'
+                  : '—'}
+              </div>
+            </div>
+          )}
 
           {canEdit ? (
             <div className="form-field">

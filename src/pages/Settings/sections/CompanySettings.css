@@ -41,4 +41,219 @@
   gap: 4px;
 }
 
+/* Tabs */
+.company-settings-tabs {
+  display: flex;
+  gap: 8px;
+  border-bottom: 1px solid var(--color-border);
+  margin-bottom: 16px;
+}
+
+.company-settings-tab {
+  padding: 8px 16px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+}
+
+.company-settings-tab:hover {
+  color: var(--color-text-primary);
+}
+
+.company-settings-tab.active {
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
+}
+
+/* Branch Management */
+.branch-management {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.branch-management-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.branches-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.branch-card {
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  padding: 16px;
+  background: var(--color-bg-primary);
+}
+
+.branch-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.branch-card-header h4 {
+  margin: 0 0 4px 0;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.branch-code {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  background: var(--color-bg-secondary);
+  padding: 2px 8px;
+  border-radius: 3px;
+  margin-left: 8px;
+}
+
+.branch-inactive {
+  font-size: 11px;
+  color: var(--color-danger);
+  background: rgba(220, 53, 69, 0.1);
+  padding: 2px 8px;
+  border-radius: 3px;
+  margin-left: 8px;
+}
+
+.branch-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.branch-card-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--color-text-secondary);
+}
+
+.branch-card-content p {
+  margin: 0;
+}
+
+.branch-departments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.department-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  padding: 4px 8px;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: 3px;
+  color: var(--color-text-primary);
+}
+
+.department-tag-remove {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  font-size: 16px;
+  line-height: 1;
+  padding: 0;
+  margin-left: 4px;
+}
+
+.department-tag-remove:hover {
+  color: var(--color-danger);
+}
+
+/* Branch Form Modal */
+.branch-form-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.branch-form-content {
+  background: var(--color-bg-primary);
+  border-radius: 8px;
+  padding: 24px;
+  max-width: 600px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.branch-form-content h3 {
+  margin: 0 0 16px 0;
+}
+
+.departments-selection {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.standard-departments,
+.custom-departments {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.department-checkboxes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.department-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.department-checkbox input[type="checkbox"] {
+  cursor: pointer;
+}
+
+.custom-department-input {
+  display: flex;
+  gap: 8px;
+}
+
+.custom-department-input input {
+  flex: 1;
+}
+
+.custom-departments-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.settings-empty-state {
+  text-align: center;
+  padding: 40px;
+  color: var(--color-text-secondary);
+}
 
