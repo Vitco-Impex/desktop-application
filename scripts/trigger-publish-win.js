@@ -29,7 +29,23 @@ function triggerWorkflow() {
     console.log('✅ Workflow triggered successfully!');
     console.log('📊 Check the workflow status at: https://github.com/Vitco-Impex/desktop-application/actions');
   } catch (error) {
-    console.error('❌ Failed to trigger workflow:', error.message);
+    const errorMessage = error.message || error.toString();
+    
+    if (errorMessage.includes('404') || errorMessage.includes('not found')) {
+      console.error('❌ Workflow file not found on GitHub repository.');
+      console.error('');
+      console.error('📝 The workflow file needs to be committed and pushed to the repository first.');
+      console.error('');
+      console.error('To fix this:');
+      console.error('1. Commit the workflow file:');
+      console.error('   git add .github/workflows/publish-windows.yml');
+      console.error('   git commit -m "Add Windows installer publish workflow"');
+      console.error('2. Push to GitHub:');
+      console.error('   git push origin main  # or your default branch');
+      console.error('3. Then run this command again: npm run publish:win');
+    } else {
+      console.error('❌ Failed to trigger workflow:', errorMessage);
+    }
     process.exit(1);
   }
 }
