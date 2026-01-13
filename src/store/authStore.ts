@@ -41,6 +41,13 @@ export const authStore = create<AuthStore>()(
             console.error('[AuthStore] Failed to trigger auto check-in on login:', error);
           });
         }
+
+        // Auto-start proxy server on login if user prefers it
+        if (window.electronAPI?.autoStartProxyIfDesired) {
+          window.electronAPI.autoStartProxyIfDesired().catch((error) => {
+            console.error('[AuthStore] Failed to auto-start proxy on login:', error);
+          });
+        }
       },
 
       initializeAuth: async () => {
@@ -70,6 +77,13 @@ export const authStore = create<AuthStore>()(
           if (window.electronAPI?.triggerAutoCheckInOnAuthInit) {
             window.electronAPI.triggerAutoCheckInOnAuthInit().catch((error) => {
               console.error('[AuthStore] Failed to trigger auto check-in on auth init:', error);
+            });
+          }
+
+          // Auto-start proxy server after auth initialization if user prefers it
+          if (window.electronAPI?.autoStartProxyIfDesired) {
+            window.electronAPI.autoStartProxyIfDesired().catch((error) => {
+              console.error('[AuthStore] Failed to auto-start proxy on auth init:', error);
             });
           }
         } catch (error: any) {

@@ -27,6 +27,8 @@ export const AttendanceSettings: React.FC = () => {
   const [showForm, setShowForm] = useState(false);
   const [editingNetwork, setEditingNetwork] = useState<WifiNetwork | undefined>();
   const [showInactive, setShowInactive] = useState(false);
+  const [autoCheckInEnabled, setAutoCheckInEnabled] = useState<boolean>(true);
+  const [loadingAutoCheckIn, setLoadingAutoCheckIn] = useState(false);
 
   const canManageWifi = user?.role === UserRole.HR || user?.role === UserRole.ADMIN;
 
@@ -34,7 +36,43 @@ export const AttendanceSettings: React.FC = () => {
     if (canManageWifi) {
       loadNetworks();
     }
+    loadAutoCheckInSetting();
   }, [canManageWifi, showInactive]);
+
+  const loadAutoCheckInSetting = async () => {
+    if (window.electronAPI?.getAutoCheckInEnabled) {
+      try {
+        const result = await window.electronAPI.getAutoCheckInEnabled();
+        setAutoCheckInEnabled(result.enabled);
+      } catch (err) {
+        console.error('Failed to load auto check-in setting:', err);
+      }
+    }
+  };
+
+  const handleToggleAutoCheckIn = async (enabled: boolean) => {
+    if (!window.electronAPI?.setAutoCheckInEnabled) {
+      setError('Auto check-in settings are not available');
+      return;
+    }
+
+    try {
+      setLoadingAutoCheckIn(true);
+      setError(null);
+      const result = await window.electronAPI.setAutoCheckInEnabled(enabled);
+      if (result.success) {
+        setAutoCheckInEnabled(enabled);
+        setSuccess(`Auto check-in ${enabled ? 'enabled' : 'disabled'} successfully`);
+        setTimeout(() => setSuccess(null), 3000);
+      } else {
+        setError(result.error || 'Failed to update auto check-in setting');
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to update auto check-in setting');
+    } finally {
+      setLoadingAutoCheckIn(false);
+    }
+  };
 
   const loadNetworks = async () => {
     try {
@@ -159,6 +197,33 @@ export const AttendanceSettings: React.FC = () => {
 
       {error && <div className="settings-error">{error}</div>}
       {success && <div className="settings-success">{success}</div>}
+
+      {/* Auto Check-In Settings */}
+      <div className="settings-card">
+        <div className="settings-card-header">
+          <h3>Auto Check-In</h3>
+        </div>
+        <div className="settings-card-content">
+          <div className="settings-toggle-row">
+            <div className="settings-toggle-info">
+              <label className="settings-toggle-label">Enable Auto Check-In on App Start</label>
+              <p className="settings-toggle-description">
+                Automatically check in when the application starts, if you're not already checked in.
+                This helps ensure your attendance is recorded even if you forget to manually check in.
+              </p>
+            </div>
+            <label className="toggle-switch">
+              <input
+                type="checkbox"
+                checked={autoCheckInEnabled}
+                onChange={(e) => handleToggleAutoCheckIn(e.target.checked)}
+                disabled={loadingAutoCheckIn}
+              />
+              <span className="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+      </div>
 
       {/* Wi-Fi Network Management - HR/Admin Only */}
       <div className="settings-card">

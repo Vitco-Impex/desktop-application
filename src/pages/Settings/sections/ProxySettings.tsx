@@ -21,12 +21,29 @@ export const ProxySettings: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [checkingPermission, setCheckingPermission] = useState(true);
+  const [proxyAutoStartEnabled, setProxyAutoStartEnabled] = useState<boolean>(false);
+  const [loadingAutoStart, setLoadingAutoStart] = useState(false);
 
   useEffect(() => {
     if (user?.id) {
       checkProxyPermission();
     }
   }, [user?.id]);
+
+  // Load proxy auto-start preference on mount
+  useEffect(() => {
+    const loadAutoStartPreference = async () => {
+      if (!window.electronAPI?.getProxyAutoStartEnabled) return;
+      try {
+        const result = await window.electronAPI.getProxyAutoStartEnabled();
+        setProxyAutoStartEnabled(result.enabled);
+      } catch (err) {
+        console.error('Failed to load proxy auto-start setting:', err);
+      }
+    };
+
+    loadAutoStartPreference();
+  }, []);
 
   // Load proxy status on mount and periodically
   useEffect(() => {
@@ -142,6 +159,28 @@ export const ProxySettings: React.FC = () => {
     }
   };
 
+  const handleToggleProxyAutoStart = async (enabled: boolean) => {
+    if (!window.electronAPI?.setProxyAutoStartEnabled) {
+      setError('Proxy auto-start settings are not available. Please restart the application.');
+      return;
+    }
+
+    try {
+      setLoadingAutoStart(true);
+      setError(null);
+      const result = await window.electronAPI.setProxyAutoStartEnabled(enabled);
+      if (result.success) {
+        setProxyAutoStartEnabled(enabled);
+      } else {
+        setError(result.error || 'Failed to update proxy auto-start setting');
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to update proxy auto-start setting');
+    } finally {
+      setLoadingAutoStart(false);
+    }
+  };
+
   if (checkingPermission) {
     return (
       <div className="proxy-settings">
@@ -194,6 +233,24 @@ export const ProxySettings: React.FC = () => {
               checked={serverStatus.isRunning}
               onChange={(e) => handleToggleProxy(e.target.checked)}
               disabled={loading}
+            />
+            <span className="toggle-slider"></span>
+          </label>
+        </div>
+
+        <div className="proxy-toggle-section">
+          <div className="proxy-toggle-info">
+            <label className="proxy-toggle-label">Auto-Start Proxy on App Start</label>
+            <p className="proxy-toggle-description">
+              When enabled, the proxy server will automatically start after you log in and the app initializes, if you have proxy permission.
+            </p>
+          </div>
+          <label className="toggle-switch">
+            <input
+              type="checkbox"
+              checked={proxyAutoStartEnabled}
+              onChange={(e) => handleToggleProxyAutoStart(e.target.checked)}
+              disabled={loadingAutoStart}
             />
             <span className="toggle-slider"></span>
           </label>

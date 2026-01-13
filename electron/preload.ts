@@ -51,6 +51,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return ipcRenderer.invoke('auto-attendance:on-auth-init');
   },
   
+  getAutoCheckInEnabled: (): Promise<{ enabled: boolean }> => {
+    return ipcRenderer.invoke('auto-attendance:get-enabled');
+  },
+  
+  setAutoCheckInEnabled: (enabled: boolean): Promise<{ success: boolean; error?: string }> => {
+    return ipcRenderer.invoke('auto-attendance:set-enabled', enabled);
+  },
+  
   // Get API base URL from renderer (which has access to Vite env vars)
   getApiBaseUrl: (): Promise<string> => {
     return ipcRenderer.invoke('get-api-base-url');
@@ -67,6 +75,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
   
   getProxyStatus: (): Promise<{ success: boolean; isRunning?: boolean; port?: number; connectedClients?: number; ipAddress?: string | null; isRegistered?: boolean; lastRegistrationAttempt?: Date | null; lastRegistrationError?: string | null; mainServerUrl?: string; error?: string }> => {
     return ipcRenderer.invoke('proxy:status');
+  },
+
+  getProxyAutoStartEnabled: (): Promise<{ enabled: boolean }> => {
+    return ipcRenderer.invoke('proxy:get-autostart-enabled');
+  },
+
+  setProxyAutoStartEnabled: (enabled: boolean): Promise<{ success: boolean; error?: string }> => {
+    return ipcRenderer.invoke('proxy:set-autostart-enabled', enabled);
+  },
+
+  autoStartProxyIfDesired: (): Promise<{ success: boolean; reason?: string; error?: string; status?: any }> => {
+    return ipcRenderer.invoke('proxy:auto-start-if-desired');
   },
 });
 

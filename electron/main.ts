@@ -6,7 +6,7 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import * as os from 'os';
 
-// Auto attendance services
+// Auto attendance & proxy services
 import { autoAttendanceService } from './services/auto-attendance.service';
 import { autoCheckOutService } from './services/auto-checkout.service';
 import { sessionService } from './services/session.service';
@@ -1580,6 +1580,65 @@ ipcMain.handle('auto-attendance:on-auth-init', async () => {
       reason: error.message || 'Unknown error',
       timestamp: new Date(),
     };
+  }
+});
+
+// Handle getting proxy auto-start enabled setting
+ipcMain.handle('proxy:get-autostart-enabled', async () => {
+  try {
+    return { enabled: configService.isProxyAutoStartEnabled() };
+  } catch (error: any) {
+    console.error('[Proxy] Failed to get auto-start setting:', error);
+    return { enabled: false };
+  }
+});
+
+// Handle setting proxy auto-start enabled
+ipcMain.handle('proxy:set-autostart-enabled', async (_event, enabled: boolean) => {
+  try {
+    configService.setProxyAutoStartEnabled(enabled);
+    return { success: true };
+  } catch (error: any) {
+    console.error('[Proxy] Failed to set auto-start setting:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Handle auto-starting proxy after auth init if desired
+ipcMain.handle('proxy:auto-start-if-desired', async () => {
+  try {
+    // Only auto-start if user has enabled the setting
+    if (!configService.isProxyAutoStartEnabled()) {
+      return { success: false, reason: 'Proxy auto-start disabled' };
+    }
+
+    // Start proxy server (service will handle auth/registration checks)
+    const status = await proxyServerService.startProxyServer();
+    return { success: true, status };
+  } catch (error: any) {
+    console.error('[Proxy] Failed to auto-start proxy server:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Handle getting auto check-in enabled setting
+ipcMain.handle('auto-attendance:get-enabled', async () => {
+  try {
+    return { enabled: configService.isAutoCheckInEnabled() };
+  } catch (error: any) {
+    console.error('[AutoAttendance] Failed to get auto check-in setting:', error);
+    return { enabled: true }; // Default to enabled
+  }
+});
+
+// Handle setting auto check-in enabled
+ipcMain.handle('auto-attendance:set-enabled', async (_event, enabled: boolean) => {
+  try {
+    configService.setAutoCheckInEnabled(enabled);
+    return { success: true };
+  } catch (error: any) {
+    console.error('[AutoAttendance] Failed to set auto check-in setting:', error);
+    return { success: false, error: error.message };
   }
 });
 

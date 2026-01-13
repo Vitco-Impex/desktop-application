@@ -12,6 +12,7 @@ interface AutoAttendanceConfig {
   autoCheckoutOnShutdownEnabled?: boolean;
   checkoutTimeout?: number; // in seconds
   checkoutNotificationsEnabled?: boolean;
+  proxyAutoStartEnabled?: boolean;
 }
 
 class ConfigService {
@@ -114,6 +115,21 @@ class ConfigService {
    */
   setCheckoutNotificationsEnabled(enabled: boolean): void {
     this.updateConfig({ checkoutNotificationsEnabled: enabled });
+  }
+
+  /**
+   * Check if proxy auto-start is enabled
+   */
+  isProxyAutoStartEnabled(): boolean {
+    const config = this.getConfig();
+    return config.proxyAutoStartEnabled === true;
+  }
+
+  /**
+   * Set proxy auto-start enabled
+   */
+  setProxyAutoStartEnabled(enabled: boolean): void {
+    this.updateConfig({ proxyAutoStartEnabled: enabled });
   }
 }
 

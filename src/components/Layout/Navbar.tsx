@@ -217,13 +217,15 @@ export const Navbar: React.FC = () => {
                 >
                   Settings
                 </button>
-                <button
-                  className="navbar-menu-item"
-                  onClick={handleLogout}
-                  role="menuitem"
-                >
-                  Logout
-                </button>
+                {(user?.role === UserRole.ADMIN || user?.role === 'admin') && (
+                  <button
+                    className="navbar-menu-item"
+                    onClick={handleLogout}
+                    role="menuitem"
+                  >
+                    Logout
+                  </button>
+                )}
               </div>
             )}
           </div>

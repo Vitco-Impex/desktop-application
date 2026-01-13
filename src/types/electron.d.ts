@@ -27,10 +27,15 @@ export interface ElectronAPI {
   getLogPath: () => Promise<string>;
   triggerAutoCheckInOnLogin: () => Promise<any>;
   triggerAutoCheckInOnAuthInit: () => Promise<any>;
+  getAutoCheckInEnabled: () => Promise<{ enabled: boolean }>;
+  setAutoCheckInEnabled: (enabled: boolean) => Promise<{ success: boolean; error?: string }>;
   getApiBaseUrl: () => Promise<string>;
   startProxyServer: () => Promise<{ success: boolean; port?: number; ipAddress?: string | null; error?: string }>;
   stopProxyServer: () => Promise<{ success: boolean; error?: string }>;
   getProxyStatus: () => Promise<{ success: boolean; isRunning?: boolean; port?: number; connectedClients?: number; ipAddress?: string | null; error?: string }>;
+  getProxyAutoStartEnabled: () => Promise<{ enabled: boolean }>;
+  setProxyAutoStartEnabled: (enabled: boolean) => Promise<{ success: boolean; error?: string }>;
+  autoStartProxyIfDesired: () => Promise<{ success: boolean; reason?: string; error?: string; status?: any }>;
 }
 
 declare global {

@@ -42,6 +42,7 @@ interface AutoAttendanceConfig {
   autoCheckoutOnShutdownEnabled?: boolean;
   checkoutTimeout?: number;
   checkoutNotificationsEnabled?: boolean;
+  proxyAutoStartEnabled?: boolean;
 }
 
 const STORAGE_FILE = 'auto-attendance-storage.json';
@@ -133,17 +134,24 @@ class StorageService {
           autoCheckInEnabled: true,
           autoStartEnabled: true,
           showNotifications: true,
+          proxyAutoStartEnabled: false,
         };
       }
 
       const data = fs.readFileSync(this.configPath, 'utf-8');
-      return JSON.parse(data);
+      const parsed = JSON.parse(data) as AutoAttendanceConfig;
+      // Provide defaults for any new fields
+      if (parsed.proxyAutoStartEnabled === undefined) {
+        parsed.proxyAutoStartEnabled = false;
+      }
+      return parsed;
     } catch (error) {
       console.error('[StorageService] Failed to read config:', error);
       return {
         autoCheckInEnabled: true,
         autoStartEnabled: true,
         showNotifications: true,
+        proxyAutoStartEnabled: false,
       };
     }
   }
