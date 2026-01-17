@@ -5,6 +5,10 @@
 
 import React, { useState, useRef } from 'react';
 import { reportService } from '@/services/report.service';
+import { formatFileSize } from '@/utils/string';
+import { extractErrorMessage } from '@/utils/error';
+import { Input } from '@/shared/components/ui/Input';
+import { Textarea } from '@/shared/components/ui/Textarea';
 import './ReportEditor.css';
 
 interface ReportEditorProps {
@@ -92,11 +96,6 @@ export const ReportEditor: React.FC<ReportEditorProps> = ({ onSuccess, onCancel 
     handleFileSelect(e.dataTransfer.files);
   };
 
-  const formatFileSize = (bytes: number): string => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  };
 
   const getFileIcon = (mimeType: string): string => {
     if (mimeType.startsWith('image/')) return '🖼️';
@@ -136,7 +135,7 @@ export const ReportEditor: React.FC<ReportEditorProps> = ({ onSuccess, onCancel 
       setAttachments([]);
       onSuccess();
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to create report');
+      setError(extractErrorMessage(err, 'Failed to create report'));
     } finally {
       setLoading(false);
     }
@@ -155,12 +154,11 @@ export const ReportEditor: React.FC<ReportEditorProps> = ({ onSuccess, onCancel 
           <label htmlFor="report-title">
             Title <span className="required">*</span>
           </label>
-          <input
+          <Input
             id="report-title"
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            className="form-input"
             placeholder="Enter report title..."
             maxLength={200}
             required
@@ -173,11 +171,10 @@ export const ReportEditor: React.FC<ReportEditorProps> = ({ onSuccess, onCancel 
           <label htmlFor="report-content">
             Content <span className="required">*</span>
           </label>
-          <textarea
+          <Textarea
             id="report-content"
             value={content}
             onChange={(e) => setContent(e.target.value)}
-            className="form-textarea"
             placeholder="Write your report content here... (Markdown supported)"
             rows={12}
             required

@@ -9,6 +9,8 @@ import { employeeService } from '@/services/employee.service';
 import { ShiftAssignment, Shift } from '@/types/shift';
 import { Button } from '@/shared/components/ui/Button';
 import { Input } from '@/shared/components/ui/Input';
+import { LoadingState, EmptyState } from '@/shared/components/data-display';
+import { formatDate } from '@/utils/date';
 import { authStore } from '@/store/authStore';
 import { UserRole } from '@/types';
 import './ShiftAssignments.css';
@@ -257,12 +259,10 @@ export const ShiftAssignments: React.FC = () => {
     });
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString();
-  };
+  // Use utility function for date formatting
 
   if (loading && assignments.length === 0) {
-    return <div className="shift-assignments-loading">Loading assignments...</div>;
+    return <LoadingState message="Loading assignments..." />;
   }
 
   return (
@@ -328,42 +328,37 @@ export const ShiftAssignments: React.FC = () => {
             </div>
             <form onSubmit={handleFormSubmit} className="shift-assignments-form">
               <div className="shift-assignments-form-field">
-                <label>
-                  Assignment Mode
-                  <select
-                    value={formData.assignmentMode}
-                    onChange={(e) => setFormData({ 
-                      ...formData, 
-                      assignmentMode: e.target.value as any,
-                      employeeId: '', // Clear selection when mode changes
-                    })}
-                  >
-                    <option value="individual">Individual</option>
-                    <option value="team">Team</option>
-                    <option value="department">Department</option>
-                    <option value="role">Role</option>
-                  </select>
-                </label>
+                <Select
+                  label="Assignment Mode"
+                  value={formData.assignmentMode}
+                  onChange={(e) => setFormData({ 
+                    ...formData, 
+                    assignmentMode: e.target.value as any,
+                    employeeId: '', // Clear selection when mode changes
+                  })}
+                  options={[
+                    { value: 'individual', label: 'Individual' },
+                    { value: 'team', label: 'Team' },
+                    { value: 'department', label: 'Department' },
+                    { value: 'role', label: 'Role' },
+                  ]}
+                />
               </div>
 
               {formData.assignmentMode === 'individual' && (
                 <div className="shift-assignments-form-field">
-                  <label>
-                    Employee
-                    <select
-                      value={formData.employeeId}
-                      onChange={(e) => setFormData({ ...formData, employeeId: e.target.value })}
-                      required
-                      disabled={!!editingAssignment}
-                    >
-                      <option value="">Select an employee</option>
-                      {employees.map((emp) => (
-                        <option key={emp.id} value={emp.id}>
-                          {emp.name} ({emp.email}) - {emp.role} {emp.department ? `- ${emp.department}` : ''}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                  <Select
+                    label="Employee"
+                    value={formData.employeeId}
+                    onChange={(e) => setFormData({ ...formData, employeeId: e.target.value })}
+                    required
+                    disabled={!!editingAssignment}
+                    placeholder="Select an employee"
+                    options={employees.map((emp) => ({
+                      value: emp.id,
+                      label: `${emp.name} (${emp.email}) - ${emp.role}${emp.department ? ` - ${emp.department}` : ''}`,
+                    }))}
+                  />
                 </div>
               )}
 
@@ -393,22 +388,18 @@ export const ShiftAssignments: React.FC = () => {
 
               {formData.assignmentMode === 'department' && (
                 <div className="shift-assignments-form-field">
-                  <label>
-                    Department
-                    <select
-                      value={formData.employeeId || ''}
-                      onChange={(e) => setFormData({ ...formData, employeeId: e.target.value })}
-                      required
-                      disabled={!!editingAssignment}
-                    >
-                      <option value="">Select a department</option>
-                      {departments.map((dept) => (
-                        <option key={dept} value={dept}>
-                          {dept}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                  <Select
+                    label="Department"
+                    value={formData.employeeId || ''}
+                    onChange={(e) => setFormData({ ...formData, employeeId: e.target.value })}
+                    required
+                    disabled={!!editingAssignment}
+                    placeholder="Select a department"
+                    options={departments.map((dept) => ({
+                      value: dept,
+                      label: dept,
+                    }))}
+                  />
                   <small className="shift-assignments-form-hint">
                     This will assign the shift to all employees in the selected department
                   </small>
@@ -417,22 +408,18 @@ export const ShiftAssignments: React.FC = () => {
 
               {formData.assignmentMode === 'role' && (
                 <div className="shift-assignments-form-field">
-                  <label>
-                    Role
-                    <select
-                      value={formData.employeeId || ''}
-                      onChange={(e) => setFormData({ ...formData, employeeId: e.target.value })}
-                      required
-                      disabled={!!editingAssignment}
-                    >
-                      <option value="">Select a role</option>
-                      {roles.map((role) => (
-                        <option key={role} value={role}>
-                          {role.charAt(0).toUpperCase() + role.slice(1)}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                  <Select
+                    label="Role"
+                    value={formData.employeeId || ''}
+                    onChange={(e) => setFormData({ ...formData, employeeId: e.target.value })}
+                    required
+                    disabled={!!editingAssignment}
+                    placeholder="Select a role"
+                    options={roles.map((role) => ({
+                      value: role,
+                      label: role.charAt(0).toUpperCase() + role.slice(1),
+                    }))}
+                  />
                   <small className="shift-assignments-form-hint">
                     This will assign the shift to all employees with the selected role
                   </small>
@@ -456,21 +443,17 @@ export const ShiftAssignments: React.FC = () => {
 
               {formData.assignmentType !== 'rotational' && (
                 <div className="shift-assignments-form-field">
-                  <label>
-                    Shift
-                    <select
-                      value={formData.shiftId}
-                      onChange={(e) => setFormData({ ...formData, shiftId: e.target.value })}
-                      required={formData.assignmentType !== 'rotational'}
-                    >
-                      <option value="">Select a shift</option>
-                      {shifts.map((shift) => (
-                        <option key={shift.id} value={shift.id}>
-                          {shift.name} ({shift.code})
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                  <Select
+                    label="Shift"
+                    value={formData.shiftId}
+                    onChange={(e) => setFormData({ ...formData, shiftId: e.target.value })}
+                    required={formData.assignmentType !== 'rotational'}
+                    placeholder="Select a shift"
+                    options={shifts.map((shift) => ({
+                      value: shift.id,
+                      label: `${shift.name} (${shift.code})`,
+                    }))}
+                  />
                 </div>
               )}
 
@@ -527,9 +510,10 @@ export const ShiftAssignments: React.FC = () => {
       {/* Assignments List */}
       <div className="shift-assignments-content">
         {assignments.length === 0 ? (
-          <div className="shift-assignments-empty">
-            No {activeTab === 'current' ? 'active' : activeTab === 'upcoming' ? 'upcoming' : ''} assignments
-          </div>
+          <EmptyState
+            title={`No ${activeTab === 'current' ? 'active' : activeTab === 'upcoming' ? 'upcoming' : ''} assignments`}
+            message="Create an assignment to get started."
+          />
         ) : (
           <div className="shift-assignments-table-wrapper">
             <table className="shift-assignments-table">

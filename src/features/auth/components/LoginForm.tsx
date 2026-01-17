@@ -11,6 +11,8 @@ import { LoginRequest } from '@/types';
 import { Input } from '@/shared/components/ui';
 import { Button } from '@/shared/components/ui';
 import { Card } from '@/shared/components/ui';
+import { Form, FormField } from '@/shared/components/forms';
+import { ErrorState } from '@/shared/components/data-display';
 import './LoginForm.css';
 
 export const LoginForm: React.FC = () => {
@@ -90,31 +92,39 @@ export const LoginForm: React.FC = () => {
           <p>Sign in to your account</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="login-form">
-          {error && <div className="error-message">{error}</div>}
+        <Form onSubmit={handleSubmit} className="login-form">
+          {error && (
+            <ErrorState
+              title="Login failed"
+              message={error}
+              className="login-error-state"
+            />
+          )}
 
-          <Input
-            label="Email or Phone Number"
-            type="text"
-            name="identifier"
-            value={identifier}
-            onChange={handleIdentifierChange}
-            required
-            autoComplete="username"
-            placeholder="Enter your email or phone number"
-            error={error ? undefined : undefined}
-          />
+          <FormField label="Email or Phone Number" required>
+            <Input
+              type="text"
+              name="identifier"
+              value={identifier}
+              onChange={handleIdentifierChange}
+              required
+              autoComplete="username"
+              placeholder="Enter your email or phone number"
+              error={error ? undefined : undefined}
+            />
+          </FormField>
 
-          <Input
-            label="Password"
-            type="password"
-            name="password"
-            value={password}
-            onChange={handlePasswordChange}
-            required
-            autoComplete="current-password"
-            placeholder="Enter your password"
-          />
+          <FormField label="Password" required>
+            <Input
+              type="password"
+              name="password"
+              value={password}
+              onChange={handlePasswordChange}
+              required
+              autoComplete="current-password"
+              placeholder="Enter your password"
+            />
+          </FormField>
 
           <Button
             type="submit"
@@ -124,7 +134,7 @@ export const LoginForm: React.FC = () => {
           >
             {loading ? 'Signing in...' : 'Sign In'}
           </Button>
-        </form>
+        </Form>
 
         <div className="login-footer">
           <p className="role-hints">Admin • HR • Manager • Employee</p>

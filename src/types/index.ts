@@ -17,6 +17,7 @@ export interface User {
   role: UserRole;
   department?: string;
   branchId?: string;
+  branchDepartments?: string[];
   phoneNumber?: string;
   address?: string;
   employeeId?: string;

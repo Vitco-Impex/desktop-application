@@ -5,6 +5,7 @@
 import axios, { AxiosInstance, AxiosError } from 'axios';
 import { config } from '@/config';
 import { authStore } from '@/store/authStore';
+import { logger } from '@/shared/utils/logger';
 
 class ApiService {
   private instance: AxiosInstance;
@@ -76,7 +77,7 @@ class ApiService {
               return this.instance(originalRequest);
             } catch (refreshError: any) {
               // Refresh failed, logout user
-              console.error('[ApiService] Token refresh failed:', {
+              logger.error('[ApiService] Token refresh failed', refreshError, {
                 message: refreshError?.message,
                 status: refreshError?.response?.status,
                 data: refreshError?.response?.data,
@@ -92,7 +93,7 @@ class ApiService {
 
         // If refresh endpoint failed, logout immediately
         if (error.response?.status === 401 && isRefreshEndpoint) {
-          console.error('[ApiService] Refresh token endpoint failed - logging out');
+          logger.error('[ApiService] Refresh token endpoint failed - logging out', error);
           authStore.getState().logout();
         }
 

@@ -4,15 +4,21 @@
 
 import { AppRouter } from '@/router/AppRouter';
 import { AuthInitializer } from '@/shared/components/routing/AuthInitializer';
+import { QueryProvider } from '@/shared/providers/QueryProvider';
+import { ErrorBoundary } from '@/shared/components/ErrorBoundary';
 import './App.css';
 
 function App() {
   return (
-    <div className="app">
-      <AuthInitializer>
-        <AppRouter />
-      </AuthInitializer>
-    </div>
+    <ErrorBoundary>
+      <QueryProvider>
+        <div className="app">
+          <AuthInitializer>
+            <AppRouter />
+          </AuthInitializer>
+        </div>
+      </QueryProvider>
+    </ErrorBoundary>
   );
 }
 

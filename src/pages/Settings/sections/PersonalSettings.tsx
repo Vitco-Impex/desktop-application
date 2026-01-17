@@ -7,6 +7,7 @@ import React, { useState, useEffect } from 'react';
 import { profileService, UpdateProfileRequest, ChangePasswordRequest } from '@/services/profile.service';
 import { authStore } from '@/store/authStore';
 import { User } from '@/types';
+import { extractErrorMessage } from '@/utils/error';
 import './PersonalSettings.css';
 
 export const PersonalSettings: React.FC = () => {
@@ -71,7 +72,7 @@ export const PersonalSettings: React.FC = () => {
       // Clear success message after 3 seconds
       setTimeout(() => setSuccess(null), 3000);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to update profile');
+      setError(extractErrorMessage(err, 'Failed to update profile'));
     } finally {
       setLoading(false);
     }
@@ -95,7 +96,7 @@ export const PersonalSettings: React.FC = () => {
       // Clear success message after 3 seconds
       setTimeout(() => setSuccess(null), 3000);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to change password');
+      setError(extractErrorMessage(err, 'Failed to change password'));
     } finally {
       setLoading(false);
     }

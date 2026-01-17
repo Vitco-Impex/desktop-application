@@ -4,7 +4,7 @@
 
 import React from 'react';
 import { EmployeeDetails, UpdateEmployeeDetailsRequest, TaskVisibility, UserRole } from '@/types';
-import { SectionWrapper } from '@/components/EmployeeDetails/SectionWrapper';
+import { CollapsibleSection } from '@/shared/components/ui';
 import './TaskPreferencesSection.css';
 
 interface TaskPreferencesSectionProps {
@@ -73,7 +73,7 @@ export const TaskPreferencesSection: React.FC<TaskPreferencesSectionProps> = ({
   };
 
   return (
-    <SectionWrapper
+    <CollapsibleSection
       title="Task & Work Preferences"
       icon="📋"
       isExpanded={isExpanded}
@@ -200,7 +200,7 @@ export const TaskPreferencesSection: React.FC<TaskPreferencesSectionProps> = ({
           )}
         </div>
       </div>
-    </SectionWrapper>
+    </CollapsibleSection>
   );
 };
 

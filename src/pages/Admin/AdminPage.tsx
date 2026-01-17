@@ -6,6 +6,7 @@ import React, { useState, useEffect } from 'react';
 import { authStore } from '@/store/authStore';
 import { AttendanceDashboard } from '@/features/attendance/components/AttendanceDashboard';
 import { employeeService } from '@/services/employee.service';
+import { logger } from '@/shared/utils/logger';
 import { User } from '@/types';
 import './AdminPage.css';
 
@@ -24,7 +25,7 @@ export const AdminPage: React.FC = () => {
       const users = await employeeService.getAllProxyEnabledUsers();
       setProxyUsers(users);
     } catch (err) {
-      console.error('Failed to load proxy users:', err);
+      logger.error('[AdminPage] Failed to load proxy users', err);
     } finally {
       setLoading(false);
     }

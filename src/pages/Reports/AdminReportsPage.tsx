@@ -11,6 +11,7 @@ import { AdminReportsToolbar } from '@/features/reports/components/AdminReportsT
 import { AdminReportsTable } from '@/features/reports/components/AdminReportsTable';
 import { AdminReportDetailModal } from '@/features/reports/components/AdminReportDetailModal';
 import { Button } from '@/shared/components/ui';
+import { extractErrorMessage } from '@/utils/error';
 import './AdminReportsPage.css';
 
 interface ReportFilters {
@@ -49,7 +50,7 @@ export const AdminReportsPage: React.FC = () => {
       setTotalPages(result.totalPages);
       setTotalReports(result.total);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to load reports');
+      setError(extractErrorMessage(err, 'Failed to load reports'));
     } finally {
       setLoading(false);
     }
@@ -67,7 +68,7 @@ export const AdminReportsPage: React.FC = () => {
       const fullReport = await reportService.getReportById(report.id);
       setSelectedReport(fullReport);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to load report');
+      setError(extractErrorMessage(err, 'Failed to load report'));
     } finally {
       setLoading(false);
     }
@@ -83,7 +84,7 @@ export const AdminReportsPage: React.FC = () => {
       }
       loadReports();
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to delete report');
+      setError(extractErrorMessage(err, 'Failed to delete report'));
     } finally {
       setLoading(false);
     }
@@ -103,7 +104,7 @@ export const AdminReportsPage: React.FC = () => {
       setSelectedIds(new Set());
       loadReports();
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to delete reports');
+      setError(extractErrorMessage(err, 'Failed to delete reports'));
     } finally {
       setLoading(false);
     }
@@ -114,7 +115,7 @@ export const AdminReportsPage: React.FC = () => {
       setLoading(true);
       await reportService.exportReports('csv', filters);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to export reports');
+      setError(extractErrorMessage(err, 'Failed to export reports'));
     } finally {
       setLoading(false);
     }
@@ -125,7 +126,7 @@ export const AdminReportsPage: React.FC = () => {
       setLoading(true);
       await reportService.exportReports('pdf', filters);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to export reports');
+      setError(extractErrorMessage(err, 'Failed to export reports'));
     } finally {
       setLoading(false);
     }

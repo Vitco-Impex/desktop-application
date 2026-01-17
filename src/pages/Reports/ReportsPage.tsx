@@ -2,7 +2,8 @@
  * Reports Page - Minimal, compact design
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { authStore } from '@/store/authStore';
 import { UserRole } from '@/types';
 import { reportService } from '@/services/report.service';
@@ -11,6 +12,7 @@ import { ReportEditor } from '@/features/reports/components/ReportEditor';
 import { ReportsList } from '@/features/reports/components/ReportsList';
 import { ReportDetail } from '@/features/reports/components/ReportDetail';
 import { Button } from '@/shared/components/ui';
+import { extractErrorMessage } from '@/utils/error';
 import './ReportsPage.css';
 
 type ViewMode = 'list' | 'create' | 'detail';
@@ -44,7 +46,7 @@ export const ReportsPage: React.FC = () => {
       setReports(result.reports);
       setTotalPages(result.totalPages);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to load reports');
+      setError(extractErrorMessage(err, 'Failed to load reports'));
     } finally {
       setLoading(false);
     }
@@ -62,7 +64,7 @@ export const ReportsPage: React.FC = () => {
       setSelectedReport(fullReport);
       setViewMode('detail');
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to load report');
+      setError(extractErrorMessage(err, 'Failed to load report'));
     } finally {
       setLoading(false);
     }
@@ -81,7 +83,7 @@ export const ReportsPage: React.FC = () => {
       
       loadReports();
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to delete report');
+      setError(extractErrorMessage(err, 'Failed to delete report'));
     } finally {
       setLoading(false);
     }
@@ -147,9 +149,9 @@ export const ReportsPage: React.FC = () => {
         </>
       )}
 
-      {viewMode === 'detail' && selectedReport && (
+      {viewMode === 'detail' && (reportDetail || selectedReport) && (
         <ReportDetail
-          report={selectedReport}
+          report={reportDetail || selectedReport!}
           onDelete={handleDeleteReport}
           onBack={() => {
             setViewMode('list');

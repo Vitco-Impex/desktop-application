@@ -4,6 +4,7 @@
 
 import { api } from './api';
 import { Branch, CreateBranchRequest, UpdateBranchRequest } from '@/types';
+import { extractApiData } from '@/utils/api';
 
 class BranchService {
   /**
@@ -12,7 +13,7 @@ class BranchService {
   async getBranches(filters?: { isActive?: boolean }): Promise<Branch[]> {
     const params = filters?.isActive !== undefined ? { isActive: filters.isActive } : {};
     const response = await api.get('/branches', { params });
-    return response.data.data;
+    return extractApiData(response);
   }
 
   /**
@@ -20,7 +21,7 @@ class BranchService {
    */
   async getBranch(id: string): Promise<Branch> {
     const response = await api.get(`/branches/${id}`);
-    return response.data.data;
+    return extractApiData(response);
   }
 
   /**
@@ -28,7 +29,7 @@ class BranchService {
    */
   async createBranch(request: CreateBranchRequest): Promise<Branch> {
     const response = await api.post('/branches', request);
-    return response.data.data;
+    return extractApiData(response);
   }
 
   /**
@@ -36,7 +37,7 @@ class BranchService {
    */
   async updateBranch(id: string, request: UpdateBranchRequest): Promise<Branch> {
     const response = await api.patch(`/branches/${id}`, request);
-    return response.data.data;
+    return extractApiData(response);
   }
 
   /**
@@ -51,7 +52,7 @@ class BranchService {
    */
   async getBranchEmployees(branchId: string): Promise<any[]> {
     const response = await api.get(`/branches/${branchId}/employees`);
-    return response.data.data;
+    return extractApiData(response);
   }
 }
 

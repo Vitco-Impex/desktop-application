@@ -7,6 +7,10 @@ import React, { useState, useEffect } from 'react';
 import { shiftService } from '@/services/shift.service';
 import { Shift } from '@/types/shift';
 import { Button } from '@/shared/components/ui/Button';
+import { Select } from '@/shared/components/ui/Select';
+import { LoadingState, EmptyState } from '@/shared/components/data-display';
+import { formatTime } from '@/utils/date';
+import { extractErrorMessage } from '@/utils/error';
 import { ShiftForm } from './ShiftForm';
 import './ShiftList.css';
 
@@ -35,8 +39,7 @@ export const ShiftList: React.FC<ShiftListProps> = ({ canManage, onShiftSelect, 
       const response = await shiftService.listShifts({ status: statusFilter });
       setShifts(response.shifts);
     } catch (err: any) {
-      const errorMessage = err.response?.data?.error || err.response?.data?.message || err.message || 'Failed to load shifts';
-      setError(errorMessage);
+      setError(extractErrorMessage(err, 'Failed to load shifts'));
     } finally {
       setLoading(false);
     }
@@ -64,7 +67,7 @@ export const ShiftList: React.FC<ShiftListProps> = ({ canManage, onShiftSelect, 
         onShiftSelect(null);
       }
     } catch (err: any) {
-      const errorMessage = err.response?.data?.error || err.response?.data?.message || err.message || 'Failed to delete shift';
+      const errorMessage = extractErrorMessage(err, 'Failed to delete shift');
       alert(errorMessage);
     }
   };
@@ -83,9 +86,6 @@ export const ShiftList: React.FC<ShiftListProps> = ({ canManage, onShiftSelect, 
     }
   };
 
-  const formatTime = (time: string): string => {
-    return time; // Already in HH:mm format
-  };
 
   const formatHours = (hours: number): string => {
     const h = Math.floor(hours);
@@ -112,15 +112,15 @@ export const ShiftList: React.FC<ShiftListProps> = ({ canManage, onShiftSelect, 
     <div className="shift-list">
       <div className="shift-list-header">
         <div className="shift-list-filters">
-          <select
-            className="shift-filter-select"
+          <Select
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as any)}
-          >
-            <option value="all">All Shifts</option>
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
-          </select>
+            onChange={(e) => setStatusFilter(e.target.value as 'active' | 'inactive' | 'all')}
+            options={[
+              { value: 'all', label: 'All Shifts' },
+              { value: 'active', label: 'Active' },
+              { value: 'inactive', label: 'Inactive' },
+            ]}
+          />
         </div>
         {canManage && (
           <Button variant="primary" size="md" onClick={handleCreate}>
@@ -132,9 +132,12 @@ export const ShiftList: React.FC<ShiftListProps> = ({ canManage, onShiftSelect, 
       {error && <div className="shift-list-error">{error}</div>}
 
       {loading ? (
-        <div className="shift-list-loading">Loading shifts...</div>
+        <LoadingState message="Loading shifts..." />
       ) : shifts.length === 0 ? (
-        <div className="shift-list-empty">No shifts found</div>
+        <EmptyState
+          title="No shifts found"
+          message="Create your first shift to get started."
+        />
       ) : (
         <div className="shift-list-table-wrapper">
           <table className="shift-list-table">

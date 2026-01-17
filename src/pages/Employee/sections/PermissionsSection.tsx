@@ -4,7 +4,7 @@
 
 import React from 'react';
 import { EmployeeDetails, UpdateEmployeeDetailsRequest } from '@/types';
-import { SectionWrapper } from '@/components/EmployeeDetails/SectionWrapper';
+import { CollapsibleSection } from '@/shared/components/ui';
 import './PermissionsSection.css';
 
 interface PermissionsSectionProps {
@@ -41,7 +41,7 @@ export const PermissionsSection: React.FC<PermissionsSectionProps> = ({
   };
 
   return (
-    <SectionWrapper
+    <CollapsibleSection
       title="Permissions & Overrides"
       icon="🔐"
       isExpanded={isExpanded}
@@ -172,7 +172,7 @@ export const PermissionsSection: React.FC<PermissionsSectionProps> = ({
           </div>
         </div>
       </div>
-    </SectionWrapper>
+    </CollapsibleSection>
   );
 };
 

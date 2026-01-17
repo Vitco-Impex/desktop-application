@@ -10,6 +10,7 @@ import { Input } from '@/shared/components/ui/Input';
 import { Textarea } from '@/shared/components/ui/Textarea';
 import { authStore } from '@/store/authStore';
 import { User } from '@/types';
+import { logger } from '@/shared/utils/logger';
 import './TaskForm.css';
 
 interface TaskFormProps {
@@ -71,7 +72,7 @@ export const TaskForm: React.FC<TaskFormProps> = ({
         setFormData((prev) => ({ ...prev, employeeId: user.id }));
       }
     } catch (err) {
-      console.error('Failed to load assignable employees:', err);
+      logger.error('[TaskForm] Failed to load assignable employees', err);
       // Fallback: if user is employee, just use themselves
       if (user?.role === 'employee' && user.id) {
         setAssignableEmployees([{

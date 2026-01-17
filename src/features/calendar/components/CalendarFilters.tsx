@@ -8,6 +8,7 @@ import { authStore } from '@/store/authStore';
 import { User, UserRole } from '@/types';
 import { employeeService } from '@/services/employee.service';
 import { Button } from '@/shared/components/ui/Button';
+import { logger } from '@/shared/utils/logger';
 import './CalendarFilters.css';
 
 export interface CalendarFiltersState {
@@ -56,7 +57,7 @@ export const CalendarFilters: React.FC<CalendarFiltersProps> = ({
       const allEmployees = await employeeService.getAllEmployees();
       setEmployees(allEmployees.filter((emp: any) => emp.isActive));
     } catch (error) {
-      console.error('Failed to load employees:', error);
+      logger.error('[CalendarFilters] Failed to load employees', error);
     }
   };
 

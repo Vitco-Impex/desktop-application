@@ -4,6 +4,8 @@
 
 import { api } from './api';
 import { WorkReport } from '@/types';
+import { extractApiData } from '@/utils/api';
+import { logger } from '@/shared/utils/logger';
 
 export interface CreateReportRequest {
   title: string;
@@ -36,7 +38,7 @@ class ReportService {
     // Axios will automatically set Content-Type with boundary for FormData
     const response = await api.post('/reports', formData);
 
-    return response.data.data;
+    return extractApiData(response);
   }
 
   /**
@@ -47,7 +49,7 @@ class ReportService {
       params: { page, limit },
     });
 
-    return response.data.data;
+    return extractApiData(response);
   }
 
   /**
@@ -55,7 +57,7 @@ class ReportService {
    */
   async getReportById(id: string): Promise<WorkReport> {
     const response = await api.get(`/reports/${id}`);
-    return response.data.data;
+    return extractApiData(response);
   }
 
   /**
@@ -81,7 +83,10 @@ class ReportService {
       document.body.removeChild(link);
       window.URL.revokeObjectURL(downloadUrl);
     } catch (error) {
-      console.error('Failed to download attachment:', error);
+      logger.error('[ReportService] Failed to download attachment', error, {
+        fileName,
+        url,
+      });
       throw new Error('Failed to download file');
     }
   }
@@ -103,7 +108,7 @@ class ReportService {
       params: filters,
     });
 
-    return response.data.data;
+    return extractApiData(response);
   }
 
   /**
@@ -114,7 +119,7 @@ class ReportService {
       data: { reportIds },
     });
 
-    return response.data.data;
+    return extractApiData(response);
   }
 
   /**
@@ -150,7 +155,10 @@ class ReportService {
       document.body.removeChild(link);
       window.URL.revokeObjectURL(downloadUrl);
     } catch (error) {
-      console.error('Failed to export reports:', error);
+      logger.error('[ReportService] Failed to export reports', error, {
+        format,
+        filters,
+      });
       throw new Error('Failed to export reports');
     }
   }

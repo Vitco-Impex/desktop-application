@@ -5,6 +5,7 @@
 
 import React from 'react';
 import { WifiNetwork } from '@/services/wifi.service';
+import { formatDate } from '@/utils/date';
 import './WifiNetworkList.css';
 
 interface WifiNetworkListProps {
@@ -22,14 +23,6 @@ export const WifiNetworkList: React.FC<WifiNetworkListProps> = ({
   onToggleActive,
   isLoading = false,
 }) => {
-  const formatDate = (dateString: string): string => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
-  };
 
   if (networks.length === 0) {
     return (

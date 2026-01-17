@@ -13,6 +13,8 @@ import {
 } from '@/types';
 import { NetworkInfo } from '@/types/electron';
 import { getSystemFingerprint } from '@/utils/systemFingerprint';
+import { extractApiData } from '@/utils/api';
+import { logger } from '@/shared/utils/logger';
 
 class AttendanceService {
   /**
@@ -36,7 +38,7 @@ class AttendanceService {
           };
         }
       } catch (error) {
-        console.error('Failed to get network info:', error);
+        logger.warn('[AttendanceService] Failed to get network info', error);
         // Continue without network info - backend will reject if required
       }
     }
@@ -50,7 +52,7 @@ class AttendanceService {
         }
         request.systemFingerprint = fingerprint;
       } catch (error) {
-        console.error('[AttendanceService] Failed to get system fingerprint:', error);
+        logger.error('[AttendanceService] Failed to get system fingerprint', error);
         throw new Error('Failed to generate system fingerprint. Cannot mark attendance.');
       }
     } else {
@@ -61,15 +63,16 @@ class AttendanceService {
           request.systemFingerprint = fingerprint;
         }
       } catch (error) {
-        console.warn('[AttendanceService] Failed to get system fingerprint for non-desktop:', error);
+        logger.warn('[AttendanceService] Failed to get system fingerprint for non-desktop', error);
         // Continue without fingerprint for non-desktop
       }
     }
 
     const response = await api.post('/attendance/check-in', request);
+    const record = extractApiData<AttendanceRecord>(response);
     return {
-      record: response.data.data,
-      message: response.data.message || 'Checked in successfully',
+      record,
+      message: (response.data as any).message || 'Checked in successfully',
     };
   }
 
@@ -94,7 +97,7 @@ class AttendanceService {
           };
         }
       } catch (error) {
-        console.error('Failed to get network info:', error);
+        logger.warn('[AttendanceService] Failed to get network info', error);
         // Continue without network info - backend will reject if required
       }
     }
@@ -108,7 +111,7 @@ class AttendanceService {
         }
         request.systemFingerprint = fingerprint;
       } catch (error) {
-        console.error('[AttendanceService] Failed to get system fingerprint:', error);
+        logger.error('[AttendanceService] Failed to get system fingerprint', error);
         throw new Error('Failed to generate system fingerprint. Cannot mark attendance.');
       }
     } else {
@@ -119,15 +122,15 @@ class AttendanceService {
           request.systemFingerprint = fingerprint;
         }
       } catch (error) {
-        console.warn('[AttendanceService] Failed to get system fingerprint for non-desktop:', error);
+        logger.warn('[AttendanceService] Failed to get system fingerprint for non-desktop', error);
         // Continue without fingerprint for non-desktop
       }
     }
 
     const response = await api.post('/attendance/check-out', request);
     return {
-      record: response.data.data,
-      message: response.data.message || 'Checked out successfully',
+      record: extractApiData<AttendanceRecord>(response),
+      message: (response.data as any).message || 'Checked out successfully',
     };
   }
 
@@ -136,7 +139,7 @@ class AttendanceService {
    */
   async getStatus(): Promise<AttendanceStatusResponse> {
     const response = await api.get('/attendance/status');
-    return response.data.data;
+    return extractApiData<AttendanceStatusResponse>(response);
   }
 
   /**
@@ -155,7 +158,12 @@ class AttendanceService {
     limit: number;
   }> {
     const response = await api.get('/attendance/history', { params });
-    return response.data.data;
+    return extractApiData<{
+      records: AttendanceRecord[];
+      total: number;
+      page: number;
+      limit: number;
+    }>(response);
   }
 
   /**
@@ -169,7 +177,7 @@ class AttendanceService {
     limit?: number;
   }): Promise<AttendanceDashboardData> {
     const response = await api.get('/attendance/dashboard', { params });
-    return response.data.data;
+    return extractApiData<AttendanceDashboardData>(response);
   }
 
   /**
@@ -223,7 +231,7 @@ class AttendanceService {
           };
         }
       } catch (error) {
-        console.error('Failed to get network info:', error);
+        logger.warn('[AttendanceService] Failed to get network info', error);
       }
     }
 
@@ -235,7 +243,7 @@ class AttendanceService {
           request.systemFingerprint = fingerprint;
         }
       } catch (error) {
-        console.warn('Failed to get system fingerprint:', error);
+        logger.warn('[AttendanceService] Failed to get system fingerprint', error);
       }
     }
 
@@ -244,8 +252,8 @@ class AttendanceService {
       source: request.source || AttendanceSource.DESKTOP,
     });
     return {
-      record: response.data.data,
-      message: response.data.message || 'Attendance marked successfully',
+      record: extractApiData<AttendanceRecord>(response),
+      message: (response.data as any).message || 'Attendance marked successfully',
     };
   }
 }

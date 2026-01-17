@@ -4,6 +4,8 @@
  * Used to enforce one employee per device for attendance tracking
  */
 
+import { logger } from '@/shared/utils/logger';
+
 /**
  * Generate a system fingerprint using available system information
  * This creates a relatively stable identifier for the device/system
@@ -98,7 +100,7 @@ export async function getSystemFingerprint(): Promise<string> {
       return stored;
     }
   } catch (error) {
-    console.warn('[SystemFingerprint] Failed to read from localStorage:', error);
+    logger.warn('[SystemFingerprint] Failed to read from localStorage', error);
     // Continue to generate new fingerprint
   }
 
@@ -114,14 +116,14 @@ export async function getSystemFingerprint(): Promise<string> {
     try {
       localStorage.setItem('system_fingerprint', fingerprint);
     } catch (error) {
-      console.warn('[SystemFingerprint] Failed to save to localStorage:', error);
+      logger.warn('[SystemFingerprint] Failed to save to localStorage', error);
       // Continue without caching
     }
     
     cachedFingerprint = fingerprint;
     return fingerprint;
   } catch (error) {
-    console.error('[SystemFingerprint] Failed to generate fingerprint:', error);
+    logger.error('[SystemFingerprint] Failed to generate fingerprint', error);
     throw error;
   }
 }

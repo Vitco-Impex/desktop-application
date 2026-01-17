@@ -15,6 +15,7 @@ import {
   ShiftAssignmentQuery,
   ShiftAssignmentListResponse,
 } from '@/types/shift';
+import { extractApiData } from '@/utils/api';
 
 class ShiftService {
   /**
@@ -22,7 +23,7 @@ class ShiftService {
    */
   async listShifts(query?: ShiftListQuery): Promise<ShiftListResponse> {
     const response = await api.get('/shifts', { params: query });
-    return response.data.data;
+    return extractApiData<ShiftListResponse>(response);
   }
 
   /**
@@ -30,7 +31,7 @@ class ShiftService {
    */
   async getShift(id: string): Promise<Shift> {
     const response = await api.get(`/shifts/${id}`);
-    return response.data.data;
+    return extractApiData<Shift>(response);
   }
 
   /**
@@ -38,7 +39,7 @@ class ShiftService {
    */
   async createShift(data: CreateShiftRequest): Promise<Shift> {
     const response = await api.post('/shifts', data);
-    return response.data.data;
+    return extractApiData<Shift>(response);
   }
 
   /**
@@ -46,7 +47,7 @@ class ShiftService {
    */
   async updateShift(id: string, data: UpdateShiftRequest): Promise<Shift> {
     const response = await api.put(`/shifts/${id}`, data);
-    return response.data.data;
+    return extractApiData<Shift>(response);
   }
 
   /**
@@ -61,7 +62,7 @@ class ShiftService {
    */
   async getActiveShifts(): Promise<Shift[]> {
     const response = await api.get('/shifts/active');
-    return response.data.data;
+    return extractApiData(response);
   }
 
   /**
@@ -69,7 +70,7 @@ class ShiftService {
    */
   async getShiftEmployees(shiftId: string): Promise<ShiftAssignment[]> {
     const response = await api.get(`/shifts/${shiftId}/employees`);
-    return response.data.data;
+    return extractApiData(response);
   }
 
   /**
@@ -77,7 +78,7 @@ class ShiftService {
    */
   async listAssignments(query?: ShiftAssignmentQuery): Promise<ShiftAssignmentListResponse> {
     const response = await api.get('/shifts/assignments', { params: query });
-    return response.data.data;
+    return extractApiData(response);
   }
 
   /**
@@ -86,7 +87,7 @@ class ShiftService {
   async getEmployeeShift(employeeId: string, date?: Date): Promise<ShiftAssignment | null> {
     const params = date ? { date: date.toISOString() } : {};
     const response = await api.get(`/shifts/assignments/employee/${employeeId}`, { params });
-    return response.data.data;
+    return extractApiData(response);
   }
 
   /**
@@ -94,10 +95,10 @@ class ShiftService {
    */
   async createAssignment(data: CreateShiftAssignmentRequest): Promise<ShiftAssignment & { warning?: string }> {
     const response = await api.post('/shifts/assignments', data);
-    const assignment = response.data.data;
+    const assignment = extractApiData<ShiftAssignment>(response);
     // Include warning if present in response
-    if (response.data.warning) {
-      (assignment as any).warning = response.data.warning;
+    if ((response.data as any).warning) {
+      (assignment as any).warning = (response.data as any).warning;
     }
     return assignment;
   }
@@ -107,7 +108,7 @@ class ShiftService {
    */
   async updateAssignment(id: string, data: UpdateShiftAssignmentRequest): Promise<ShiftAssignment> {
     const response = await api.put(`/shifts/assignments/${id}`, data);
-    return response.data.data;
+    return extractApiData<ShiftAssignment>(response);
   }
 
   /**

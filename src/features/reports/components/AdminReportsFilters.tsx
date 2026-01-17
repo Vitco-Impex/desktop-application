@@ -5,6 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { api } from '@/services/api';
+import { logger } from '@/shared/utils/logger';
 import './AdminReportsFilters.css';
 
 interface ReportFilters {
@@ -55,7 +56,7 @@ export const AdminReportsFilters: React.FC<AdminReportsFiltersProps> = ({
         setUsers(response.data.data);
       }
     } catch (error) {
-      console.error('Failed to load users:', error);
+      logger.error('[AdminReportsFilters] Failed to load users', error);
       setUsers([]);
     } finally {
       setLoadingUsers(false);

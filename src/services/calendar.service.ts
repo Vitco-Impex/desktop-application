@@ -11,6 +11,7 @@ import {
   CalendarEventListResponse,
   ConflictCheckResponse,
 } from '@/types/calendar';
+import { extractApiData } from '@/utils/api';
 
 class CalendarService {
   /**
@@ -36,7 +37,7 @@ class CalendarService {
     }
 
     const response = await api.get('/calendar/events', { params });
-    return response.data.data;
+    return extractApiData(response);
   }
 
   /**
@@ -44,7 +45,7 @@ class CalendarService {
    */
   async getEvent(id: string): Promise<CalendarEvent> {
     const response = await api.get(`/calendar/events/${id}`);
-    return response.data.data;
+    return extractApiData(response);
   }
 
   /**
@@ -52,7 +53,7 @@ class CalendarService {
    */
   async createEvent(request: CreateCalendarEventRequest): Promise<CalendarEvent> {
     const response = await api.post('/calendar/events', request);
-    return response.data.data;
+    return extractApiData(response);
   }
 
   /**
@@ -60,7 +61,7 @@ class CalendarService {
    */
   async updateEvent(id: string, request: UpdateCalendarEventRequest): Promise<CalendarEvent> {
     const response = await api.put(`/calendar/events/${id}`, request);
-    return response.data.data;
+    return extractApiData(response);
   }
 
   /**
@@ -84,7 +85,7 @@ class CalendarService {
       params.excludeEventId = excludeEventId;
     }
     const response = await api.get('/calendar/events/conflicts', { params });
-    return response.data.data;
+    return extractApiData(response);
   }
 
   /**
@@ -98,7 +99,7 @@ class CalendarService {
     department?: string;
   }>> {
     const response = await api.get('/calendar/assignable-employees');
-    return response.data.data;
+    return extractApiData(response);
   }
 }
 

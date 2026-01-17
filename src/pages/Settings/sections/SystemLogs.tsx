@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
+import { logger } from '@/shared/utils/logger';
 import './SystemLogs.css';
 
 declare global {
@@ -47,7 +48,7 @@ export const SystemLogs: React.FC = () => {
         setLogPath(path);
       }
     } catch (err) {
-      console.error('Failed to get log path:', err);
+      logger.error('[SystemLogs] Failed to get log path', err);
     }
   };
 

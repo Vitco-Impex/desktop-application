@@ -4,6 +4,9 @@
  */
 
 import React from 'react';
+import { formatDate } from '@/utils/date';
+import { truncate } from '@/utils/string';
+import { LoadingState, EmptyState } from '@/shared/components/data-display';
 import './AdminReportsTable.css';
 
 interface AdminReport {
@@ -50,47 +53,20 @@ export const AdminReportsTable: React.FC<AdminReportsTableProps> = ({
   onDelete,
   loading = false,
 }) => {
-  const formatDate = (dateString: string): string => {
-    if (!dateString) return '—';
-    try {
-      const date = new Date(dateString);
-      if (isNaN(date.getTime())) return '—';
-      return date.toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      });
-    } catch {
-      return '—';
-    }
-  };
-
-  const truncateContent = (content: string, maxLength: number = 100): string => {
-    if (!content) return 'No content';
-    if (content.length <= maxLength) return content;
-    return content.substring(0, maxLength).trim() + '...';
-  };
 
   const allSelected = reports.length > 0 && reports.every((r) => selectedReports.has(r.id));
   const someSelected = reports.some((r) => selectedReports.has(r.id));
 
   if (loading && reports.length === 0) {
-    return (
-      <div className="admin-reports-table-loading">
-        <p>Loading reports...</p>
-      </div>
-    );
+    return <LoadingState message="Loading reports..." />;
   }
 
   if (reports.length === 0) {
     return (
-      <div className="admin-reports-table-empty">
-        <div className="empty-icon">📋</div>
-        <h3>No Reports Found</h3>
-        <p>Try adjusting your filters to see more results.</p>
-      </div>
+      <EmptyState
+        title="No Reports Found"
+        message="Try adjusting your filters to see more results."
+      />
     );
   }
 
@@ -157,7 +133,7 @@ export const AdminReportsTable: React.FC<AdminReportsTableProps> = ({
               </td>
               <td className="col-content" onClick={(e) => e.stopPropagation()}>
                 <div className="content-preview" title={report.content || 'No content'}>
-                  {report.content ? truncateContent(report.content) : 'No content'}
+                  {report.content ? truncate(report.content, 100) : 'No content'}
                 </div>
               </td>
               <td className="col-attachments" onClick={(e) => e.stopPropagation()}>
@@ -169,8 +145,8 @@ export const AdminReportsTable: React.FC<AdminReportsTableProps> = ({
                   <span className="no-attachments">—</span>
                 )}
               </td>
-              <td className="col-date" title={report.createdAt ? formatDate(report.createdAt) : '—'} onClick={(e) => e.stopPropagation()}>
-                {report.createdAt ? formatDate(report.createdAt) : '—'}
+              <td className="col-date" title={report.createdAt ? formatDate(report.createdAt, { includeTime: true }) : '—'} onClick={(e) => e.stopPropagation()}>
+                {report.createdAt ? formatDate(report.createdAt, { includeTime: true }) : '—'}
               </td>
               <td className="col-actions">
                 <div className="action-buttons">

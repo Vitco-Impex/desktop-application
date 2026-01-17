@@ -6,6 +6,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { authStore } from '@/store/authStore';
 import { companyStore } from '@/store/companyStore';
+import { useBranchContext } from '@/hooks/useBranchContext';
 import { UserRole } from '@/types';
 import './Navbar.css';
 
@@ -19,6 +20,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { label: 'Dashboard', path: '/dashboard' },
   { label: 'Attendance', path: '/attendance' },
+  { label: 'Inventory', path: '/inventory' },
   { label: 'Reports', path: '/reports' },
   { label: 'Reports', path: '/reports/admin', roles: ['admin'] },
   { label: 'Calendar', path: '/calendar' },
@@ -30,6 +32,7 @@ export const Navbar: React.FC = () => {
   const location = useLocation();
   const { user, logout } = authStore();
   const { company } = companyStore();
+  const { departments } = useBranchContext();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -111,6 +114,9 @@ export const Navbar: React.FC = () => {
     if (path === '/calendar') {
       return location.pathname === path || location.pathname.startsWith(path + '/');
     }
+    if (path === '/inventory') {
+      return location.pathname === path || location.pathname.startsWith(path + '/');
+    }
     return location.pathname === path || location.pathname.startsWith(path + '/');
   };
 
@@ -118,6 +124,12 @@ export const Navbar: React.FC = () => {
     if (item.disabled) return false;
     if (item.path === '/reports' && user?.role === UserRole.ADMIN) {
       return false;
+    }
+    // Show inventory only if branch has inventory department, or user is admin
+    if (item.path === '/inventory') {
+      const hasInventoryDept = departments?.some((d) => d.name.toLowerCase() === 'inventory');
+      const isAdmin = user?.role === UserRole.ADMIN || user?.role === 'admin';
+      return hasInventoryDept || isAdmin;
     }
     if (item.roles && user) {
       return item.roles.includes(user.role);

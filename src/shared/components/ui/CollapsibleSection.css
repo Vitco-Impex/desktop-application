@@ -1,0 +1,60 @@
+/**
+ * Collapsible Section Styles
+ */
+
+.collapsible-section {
+  background-color: var(--color-bg-primary);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--border-radius);
+  margin-bottom: var(--spacing-md);
+  overflow: hidden;
+}
+
+.collapsible-section-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-md) var(--spacing-lg);
+  background-color: var(--color-bg-secondary);
+  border: none;
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+  text-align: left;
+}
+
+.collapsible-section-header:hover {
+  background-color: var(--color-bg-tertiary);
+}
+
+.collapsible-section-header-left {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.collapsible-section-icon {
+  font-size: var(--font-size-large);
+}
+
+.collapsible-section-title {
+  margin: 0;
+  font-size: var(--font-size-large);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.collapsible-section-toggle {
+  font-size: var(--font-size-base);
+  color: var(--color-text-secondary);
+  transition: transform var(--transition-fast);
+  user-select: none;
+}
+
+.collapsible-section-toggle.expanded {
+  transform: rotate(180deg);
+}
+
+.collapsible-section-content {
+  padding: var(--spacing-lg);
+}

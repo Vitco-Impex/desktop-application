@@ -6,6 +6,8 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { AuthState, User, UserRole } from '@/types';
 import { authService } from '@/services/auth.service';
+import { logger } from '@/shared/utils/logger';
+import { branchContextStore } from './branchContextStore';
 
 interface AuthStore extends AuthState {
   login: (user: User, accessToken: string, refreshToken: string, sessionId?: string) => void;
@@ -38,14 +40,14 @@ export const authStore = create<AuthStore>()(
         // Trigger auto check-in on login success
         if (window.electronAPI?.triggerAutoCheckInOnLogin) {
           window.electronAPI.triggerAutoCheckInOnLogin().catch((error) => {
-            console.error('[AuthStore] Failed to trigger auto check-in on login:', error);
+            logger.error('[AuthStore] Failed to trigger auto check-in on login', error);
           });
         }
 
         // Auto-start proxy server on login if user prefers it
         if (window.electronAPI?.autoStartProxyIfDesired) {
           window.electronAPI.autoStartProxyIfDesired().catch((error) => {
-            console.error('[AuthStore] Failed to auto-start proxy on login:', error);
+            logger.error('[AuthStore] Failed to auto-start proxy on login', error);
           });
         }
       },
@@ -55,17 +57,17 @@ export const authStore = create<AuthStore>()(
         const { refreshToken, user } = get();
         
         if (!refreshToken || !user) {
-          console.log('[AuthStore] No refresh token or user, skipping auth initialization');
+          logger.debug('[AuthStore] No refresh token or user, skipping auth initialization');
           set({ isAuthenticated: false, isInitializing: false });
           return;
         }
 
         try {
-          console.log('[AuthStore] Attempting to refresh token on initialization...');
+          logger.debug('[AuthStore] Attempting to refresh token on initialization...');
           // Try to refresh token to validate session
           const tokenData = await authService.refreshToken(refreshToken);
           
-          console.log('[AuthStore] Token refreshed successfully');
+          logger.info('[AuthStore] Token refreshed successfully');
           set({
             accessToken: tokenData.accessToken,
             refreshToken: tokenData.refreshToken,
@@ -76,22 +78,20 @@ export const authStore = create<AuthStore>()(
           // Trigger auto check-in after successful auth initialization
           if (window.electronAPI?.triggerAutoCheckInOnAuthInit) {
             window.electronAPI.triggerAutoCheckInOnAuthInit().catch((error) => {
-              console.error('[AuthStore] Failed to trigger auto check-in on auth init:', error);
+              logger.error('[AuthStore] Failed to trigger auto check-in on auth init', error);
             });
           }
 
           // Auto-start proxy server after auth initialization if user prefers it
           if (window.electronAPI?.autoStartProxyIfDesired) {
             window.electronAPI.autoStartProxyIfDesired().catch((error) => {
-              console.error('[AuthStore] Failed to auto-start proxy on auth init:', error);
+              logger.error('[AuthStore] Failed to auto-start proxy on auth init', error);
             });
           }
-        } catch (error: any) {
+        } catch (error: unknown) {
           // Session invalid or expired, clear auth state
-          console.error('[AuthStore] Failed to refresh token on initialization:', {
-            message: error?.message,
-            status: error?.response?.status,
-            data: error?.response?.data,
+          logger.error('[AuthStore] Failed to refresh token on initialization', error, {
+            message: error instanceof Error ? error.message : String(error),
           });
           
           set({
@@ -114,6 +114,18 @@ export const authStore = create<AuthStore>()(
             refreshToken: null,
             isAuthenticated: false,
           });
+          
+          // Clear branch context
+          branchContextStore.getState().clearContext();
+          
+          // Clear React Query cache if available
+          try {
+            const { useQueryClient } = require('@tanstack/react-query');
+            // Note: This won't work directly in Zustand store
+            // Query client should be cleared in component that calls logout
+          } catch {
+            // React Query not available, skip
+          }
         };
 
         try {

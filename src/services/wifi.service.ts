@@ -3,6 +3,7 @@
  */
 
 import { api } from './api';
+import { extractApiData } from '@/utils/api';
 
 export interface WifiNetwork {
   id: string;
@@ -52,7 +53,7 @@ class WifiService {
    */
   async validateNetwork(request: WifiValidationRequest): Promise<WifiValidationResponse> {
     const response = await api.post('/wifi/validate', request);
-    return response.data.data;
+    return extractApiData<WifiValidationResponse>(response);
   }
 
   /**
@@ -69,7 +70,7 @@ class WifiService {
     const response = await api.get('/wifi', {
       params: { includeInactive },
     });
-    return response.data.data;
+    return extractApiData<WifiNetwork[]>(response);
   }
 
   /**
@@ -77,7 +78,7 @@ class WifiService {
    */
   async getWifiNetworkById(id: string): Promise<WifiNetwork> {
     const response = await api.get(`/wifi/${id}`);
-    return response.data.data;
+    return extractApiData<WifiNetwork>(response);
   }
 
   /**
@@ -85,7 +86,7 @@ class WifiService {
    */
   async createWifiNetwork(request: CreateWifiNetworkRequest): Promise<WifiNetwork> {
     const response = await api.post('/wifi', request);
-    return response.data.data;
+    return extractApiData<WifiNetwork>(response);
   }
 
   /**
@@ -93,7 +94,7 @@ class WifiService {
    */
   async updateWifiNetwork(id: string, request: UpdateWifiNetworkRequest): Promise<WifiNetwork> {
     const response = await api.put(`/wifi/${id}`, request);
-    return response.data.data;
+    return extractApiData<WifiNetwork>(response);
   }
 
   /**

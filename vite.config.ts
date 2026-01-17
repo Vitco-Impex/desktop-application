@@ -22,9 +22,9 @@ export default defineConfig({
     minify: 'terser',
     terserOptions: {
       compress: {
-        drop_console: false, // Keep console for now to debug
+        drop_console: true, // Remove console in production
         drop_debugger: true,
-        passes: 1, // Single pass for safety
+        passes: 1,
       },
       format: {
         comments: false,
@@ -34,10 +34,14 @@ export default defineConfig({
       },
     },
     sourcemap: false,
-    chunkSizeWarningLimit: 1000,
+    chunkSizeWarningLimit: 500, // Reduced from 1000
     rollupOptions: {
       output: {
-        // Let Vite handle chunking automatically - it will properly handle React dependencies
+        manualChunks: {
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          'ui-vendor': ['zustand'],
+          'utils-vendor': ['axios'],
+        },
         chunkFileNames: 'assets/js/[name]-[hash].js',
         entryFileNames: 'assets/js/[name]-[hash].js',
         assetFileNames: 'assets/[ext]/[name]-[hash].[ext]',

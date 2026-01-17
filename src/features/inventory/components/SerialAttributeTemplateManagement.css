@@ -1,0 +1,210 @@
+.template-management {
+  width: 100%;
+}
+
+.template-management-list {
+  width: 100%;
+}
+
+.template-management-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.template-management-toolbar h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.template-table {
+  overflow-x: auto;
+}
+
+.template-table table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.template-table thead {
+  background-color: #f5f5f5;
+}
+
+.template-table th {
+  padding: 12px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 14px;
+  color: #333;
+  border-bottom: 2px solid #e0e0e0;
+}
+
+.template-table td {
+  padding: 12px;
+  border-bottom: 1px solid #e0e0e0;
+  font-size: 14px;
+}
+
+.template-table tbody tr:hover {
+  background-color: #f9f9f9;
+}
+
+.fields-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.field-badge {
+  display: inline-block;
+  padding: 4px 8px;
+  background-color: #e3f2fd;
+  border-radius: 4px;
+  font-size: 12px;
+  color: #1976d2;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.status-active {
+  color: #4caf50;
+  font-weight: 600;
+}
+
+.status-inactive {
+  color: #999;
+}
+
+.template-form {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.template-form h3 {
+  margin-top: 0;
+  margin-bottom: 20px;
+}
+
+.form-group {
+  margin-bottom: 24px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 500;
+  color: #333;
+}
+
+.fields-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.empty-fields {
+  padding: 20px;
+  text-align: center;
+  color: #999;
+  background-color: #f9f9f9;
+  border-radius: 4px;
+  border: 1px dashed #ddd;
+}
+
+.field-editor {
+  padding: 16px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  background-color: #fafafa;
+}
+
+.field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 150px 100px auto;
+  gap: 12px;
+  align-items: end;
+}
+
+.field-input {
+  display: flex;
+  flex-direction: column;
+}
+
+.field-input label {
+  font-size: 12px;
+  margin-bottom: 4px;
+  color: #666;
+}
+
+.field-input input[type="checkbox"] {
+  margin-right: 4px;
+}
+
+.select-options {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #e0e0e0;
+}
+
+.select-options label {
+  font-size: 12px;
+  margin-bottom: 8px;
+  color: #666;
+}
+
+.options-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.option-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background-color: white;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.option-item span {
+  font-size: 14px;
+}
+
+.add-option {
+  min-width: 200px;
+}
+
+.form-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 24px;
+}
+
+.error-message {
+  padding: 12px;
+  background-color: #ffebee;
+  color: #c62828;
+  border-radius: 4px;
+  margin-bottom: 16px;
+}
+
+.success-message {
+  padding: 12px;
+  background-color: #e8f5e9;
+  color: #2e7d32;
+  border-radius: 4px;
+  margin-bottom: 16px;
+}

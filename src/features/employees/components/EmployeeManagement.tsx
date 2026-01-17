@@ -10,14 +10,17 @@ import { shiftService } from '@/services/shift.service';
 import { branchService } from '@/services/branch.service';
 import { User, UserRole, EmployeeDetails, UpdateEmployeeDetailsRequest, Branch } from '@/types';
 import { Shift } from '@/types/shift';
-import { Button, Input, Card } from '@/shared/components/ui';
+import { Button, Input, Card, Select } from '@/shared/components/ui';
+import { LoadingState, EmptyState, ErrorState } from '@/shared/components/data-display';
+import { extractErrorMessage } from '@/utils/error';
+import { logger } from '@/shared/utils/logger';
 import { ProfileSummarySection } from '@/pages/Employee/sections/ProfileSummarySection';
 import { EmploymentRoleSection } from '@/pages/Employee/sections/EmploymentRoleSection';
 import { ShiftAttendanceSection } from '@/pages/Employee/sections/ShiftAttendanceSection';
 import { TaskPreferencesSection } from '@/pages/Employee/sections/TaskPreferencesSection';
 import { PermissionsSection } from '@/pages/Employee/sections/PermissionsSection';
 import { SystemAuditSection } from '@/pages/Employee/sections/SystemAuditSection';
-import { ConfirmationModal } from '@/components/EmployeeDetails/ConfirmationModal';
+import { ConfirmDialog } from '@/shared/components/modals';
 import { authStore } from '@/store/authStore';
 import './EmployeeManagement.css';
 
@@ -79,7 +82,7 @@ export const EmployeeManagement: React.FC = () => {
       const data = await branchService.getBranches({ isActive: true });
       setBranches(data);
     } catch (err) {
-      console.error('Failed to load branches:', err);
+      logger.error('[EmployeeManagement] Failed to load branches', err);
     } finally {
       setLoadingBranches(false);
     }
@@ -117,7 +120,7 @@ export const EmployeeManagement: React.FC = () => {
       const data = await employeeService.getAllEmployees();
       setEmployees(data);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to load employees');
+      setError(extractErrorMessage(err, 'Failed to load employees'));
     } finally {
       setLoading(false);
     }
@@ -128,7 +131,7 @@ export const EmployeeManagement: React.FC = () => {
       const sessions = await employeeService.getActiveSessions();
       setActiveSessions(sessions);
     } catch (err) {
-      console.error('[EmployeeManagement] Failed to load active sessions:', err);
+      logger.error('[EmployeeManagement] Failed to load active sessions', err);
     }
   };
 
@@ -143,7 +146,7 @@ export const EmployeeManagement: React.FC = () => {
       setEmployeeDetails(data);
       setUnsavedChanges(false);
     } catch (err: any) {
-      setDetailsError(err.response?.data?.message || 'Failed to load employee details');
+      setDetailsError(extractErrorMessage(err, 'Failed to load employee details'));
     } finally {
       setLoadingDetails(false);
     }
@@ -155,7 +158,7 @@ export const EmployeeManagement: React.FC = () => {
       const shiftsData = await shiftService.getActiveShifts();
       setShifts(shiftsData || []);
     } catch (err: any) {
-      console.error('Failed to load shifts:', err);
+      logger.error('[EmployeeManagement] Failed to load shifts', err);
     } finally {
       setLoadingShifts(false);
     }
@@ -235,7 +238,10 @@ export const EmployeeManagement: React.FC = () => {
           setSuccess('Employee created and shift assigned successfully');
         } catch (shiftErr: any) {
           // Employee created but shift assignment failed - show warning
-          console.error('Failed to assign shift:', shiftErr);
+          logger.error('[EmployeeManagement] Failed to assign shift', shiftErr, {
+            employeeId: newEmployee.id,
+            shiftId: selectedShiftId,
+          });
           setSuccess('Employee created successfully, but shift assignment failed. You can assign a shift later.');
         }
       }
@@ -266,21 +272,14 @@ export const EmployeeManagement: React.FC = () => {
       await loadEmployees();
       setTimeout(() => setSuccess(null), 3000);
     } catch (err: any) {
-      console.error('[EmployeeManagement] Delete error:', err);
-      
-      // Extract error message from various possible locations
-      const errorMessage = 
-        err.response?.data?.error ||
-        err.response?.data?.message ||
-        err.message ||
-        'Failed to delete employee';
-      
-      setError(errorMessage);
-      console.error('[EmployeeManagement] Error details:', {
+      const errorMessage = extractErrorMessage(err, 'Failed to delete employee');
+      logger.error('[EmployeeManagement] Delete error', err, {
+        employeeId: employee.id,
         status: err.response?.status,
         data: err.response?.data,
         message: errorMessage,
       });
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -302,12 +301,11 @@ export const EmployeeManagement: React.FC = () => {
       await loadActiveSessions();
       setTimeout(() => setSuccess(null), 3000);
     } catch (err: any) {
-      console.error('[EmployeeManagement] Logout employee error:', err);
-      const errorMessage =
-        err.response?.data?.error ||
-        err.response?.data?.message ||
-        err.message ||
-        'Failed to logout employee';
+      const errorMessage = extractErrorMessage(err, 'Failed to logout employee');
+      logger.error('[EmployeeManagement] Logout employee error', err, {
+        employeeId: employee.id,
+        message: errorMessage,
+      });
       setError(errorMessage);
     } finally {
       setLoading(false);
@@ -397,7 +395,7 @@ export const EmployeeManagement: React.FC = () => {
   const canEditLimited = currentUser?.role === UserRole.MANAGER;
 
   if (loading && employees.length === 0) {
-    return <div className="employee-management-loading">Loading employees...</div>;
+    return <LoadingState message="Loading employees..." />;
   }
 
   return (
@@ -471,8 +469,11 @@ export const EmployeeManagement: React.FC = () => {
                 <tbody>
                   {employees.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="table-empty">
-                        No employees found. Click "Add Employee" to create one.
+                      <td colSpan={8} style={{ padding: '2rem', textAlign: 'center' }}>
+                        <EmptyState
+                          title="No employees found"
+                          message='Click "Add Employee" to create one.'
+                        />
                       </td>
                     </tr>
                   ) : (
@@ -567,23 +568,20 @@ export const EmployeeManagement: React.FC = () => {
                 </div>
 
                 <div className="form-row">
-                  <div className="input-group">
-                    <label htmlFor="role">Role *</label>
-                    <select
-                      id="role"
-                      name="role"
-                      value={formData.role}
-                      onChange={handleChange}
-                      required
-                      disabled={loading}
-                      className="input"
-                    >
-                      <option value={UserRole.EMPLOYEE}>Employee</option>
-                      <option value={UserRole.MANAGER}>Manager</option>
-                      <option value={UserRole.HR}>HR</option>
-                      <option value={UserRole.ADMIN}>Admin</option>
-                    </select>
-                  </div>
+                  <Select
+                    label="Role *"
+                    name="role"
+                    value={formData.role}
+                    onChange={handleChange as any}
+                    required
+                    disabled={loading}
+                    options={[
+                      { value: UserRole.EMPLOYEE, label: 'Employee' },
+                      { value: UserRole.MANAGER, label: 'Manager' },
+                      { value: UserRole.HR, label: 'HR' },
+                      { value: UserRole.ADMIN, label: 'Admin' },
+                    ]}
+                  />
                   <Input
                     label="Department"
                     type="text"
@@ -634,28 +632,24 @@ export const EmployeeManagement: React.FC = () => {
                 </div>
 
                 <div className="form-row">
-                  <div className="input-group">
-                    <label htmlFor="shiftId">Assign Shift (Optional)</label>
-                    <select
-                      id="shiftId"
-                      name="shiftId"
-                      value={selectedShiftId}
-                      onChange={(e) => setSelectedShiftId(e.target.value)}
-                      disabled={loading || loadingShifts}
-                      className="input"
-                    >
-                      <option value="">-- No Shift --</option>
-                      {shifts.map((shift) => (
-                        <option key={shift.id} value={shift.id}>
-                          {shift.name} ({shift.startTime} - {shift.endTime})
-                        </option>
-                      ))}
-                    </select>
-                    {loadingShifts && <small>Loading shifts...</small>}
-                    {!loadingShifts && shifts.length === 0 && (
-                      <small style={{ color: '#666' }}>No active shifts available. Create a shift first.</small>
-                    )}
-                  </div>
+                  <Select
+                    label="Assign Shift (Optional)"
+                    value={selectedShiftId || ''}
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedShiftId(e.target.value)}
+                    disabled={loading || loadingShifts}
+                    placeholder="-- No Shift --"
+                    options={[
+                      { value: '', label: '-- No Shift --' },
+                      ...shifts.map((shift) => ({
+                        value: shift.id,
+                        label: `${shift.name} (${shift.startTime} - ${shift.endTime})`,
+                      })),
+                    ]}
+                  />
+                  {loadingShifts && <small>Loading shifts...</small>}
+                  {!loadingShifts && shifts.length === 0 && (
+                    <small style={{ color: '#666' }}>No active shifts available. Create a shift first.</small>
+                  )}
                 </div>
 
                 <div className="form-actions">
@@ -692,7 +686,7 @@ export const EmployeeManagement: React.FC = () => {
               )}
 
               {loadingDetails && !employeeDetails ? (
-                <div className="page-loading">Loading employee details...</div>
+                <LoadingState message="Loading employee details..." />
               ) : employeeDetails ? (
                 <div className="employee-details-sections">
                   <ProfileSummarySection
@@ -748,9 +742,10 @@ export const EmployeeManagement: React.FC = () => {
                   />
                 </div>
               ) : (
-                <div className="page-error">
-                  <p>Employee not found</p>
-                </div>
+                <ErrorState
+                  title="Employee not found"
+                  message="The employee you're looking for doesn't exist or has been deleted."
+                />
               )}
             </div>
           )}
@@ -759,12 +754,15 @@ export const EmployeeManagement: React.FC = () => {
 
       {/* Confirmation Modal */}
       {showConfirmModal && pendingUpdate && employeeDetails && (
-        <ConfirmationModal
+        <ConfirmDialog
           isOpen={showConfirmModal}
           onConfirm={handleConfirmUpdate}
           onCancel={handleCancelUpdate}
           changes={pendingUpdate.request}
           employeeName={employeeDetails.name}
+          message={`You are about to make changes to ${employeeDetails.name}`}
+          requiresReason={pendingUpdate.confirmRequired}
+          variant="warning"
         />
       )}
     </div>

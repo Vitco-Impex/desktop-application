@@ -7,6 +7,11 @@ import React, { useState, useEffect } from 'react';
 import { shiftService } from '@/services/shift.service';
 import { Shift, ShiftCheckInRules, ShiftCheckOutRules, ShiftAttendanceRules, ShiftOvertimeRules } from '@/types/shift';
 import { Button } from '@/shared/components/ui/Button';
+import { Input } from '@/shared/components/ui/Input';
+import { Select } from '@/shared/components/ui/Select';
+import { Checkbox } from '@/shared/components/ui/Checkbox';
+import { LoadingState, ErrorState } from '@/shared/components/data-display';
+import { extractErrorMessage } from '@/utils/error';
 import './ShiftRules.css';
 
 interface ShiftRulesProps {
@@ -46,7 +51,7 @@ export const ShiftRules: React.FC<ShiftRulesProps> = ({ shiftId }) => {
       setOvertimeRules(data.overtimeRules);
       setHolidayBehavior(data.holidayBehavior);
     } catch (err: any) {
-      setError(err.response?.data?.error || err.message || 'Failed to load shift rules');
+      setError(extractErrorMessage(err, 'Failed to load shift rules'));
     } finally {
       setLoading(false);
     }
@@ -82,16 +87,16 @@ export const ShiftRules: React.FC<ShiftRulesProps> = ({ shiftId }) => {
       setSuccess('Rules updated successfully. Changes will apply from tomorrow.');
       await loadShift();
     } catch (err: any) {
-      setError(err.response?.data?.error || err.message || 'Failed to update rules');
+      setError(extractErrorMessage(err, 'Failed to update rules'));
     } finally {
       setSaving(false);
     }
   };
 
-  if (loading) return <div className="shift-rules-loading">Loading rules...</div>;
-  if (error && !shift) return <div className="shift-rules-error">{error}</div>;
+  if (loading) return <LoadingState message="Loading rules..." />;
+  if (error && !shift) return <ErrorState title="Error" message={error} />;
   if (!shift || !checkInRules || !checkOutRules || !attendanceRules || !overtimeRules) {
-    return <div className="shift-rules-error">Shift not found</div>;
+    return <ErrorState title="Shift not found" message="The shift you're looking for doesn't exist." />;
   }
 
   return (
@@ -119,86 +124,78 @@ export const ShiftRules: React.FC<ShiftRulesProps> = ({ shiftId }) => {
           {expandedSections.has('checkin') && (
             <div className="shift-rules-section-content">
               <div className="shift-rules-field">
-                <label>Earliest Check-In</label>
-                <input
+                <Input
+                  label="Earliest Check-In"
                   type="number"
-                  value={checkInRules.earliestCheckIn}
+                  value={checkInRules.earliestCheckIn.toString()}
                   onChange={(e) => setCheckInRules({ ...checkInRules, earliestCheckIn: parseInt(e.target.value) || 0 })}
                   min="0"
                 />
                 <small>Minutes before shift start (e.g., 30 = 30 min early)</small>
               </div>
               <div className="shift-rules-field">
-                <label>Latest Allowed Check-In</label>
-                <input
+                <Input
+                  label="Latest Allowed Check-In"
                   type="number"
-                  value={checkInRules.latestCheckIn}
+                  value={checkInRules.latestCheckIn.toString()}
                   onChange={(e) => setCheckInRules({ ...checkInRules, latestCheckIn: parseInt(e.target.value) || 0 })}
                   min="0"
                 />
                 <small>Minutes after shift start (grace window)</small>
               </div>
               <div className="shift-rules-field">
-                <label>Grace Period</label>
-                <input
+                <Input
+                  label="Grace Period"
                   type="number"
-                  value={checkInRules.gracePeriod}
+                  value={checkInRules.gracePeriod.toString()}
                   onChange={(e) => setCheckInRules({ ...checkInRules, gracePeriod: parseInt(e.target.value) || 0 })}
                   min="0"
                 />
                 <small>Minutes of grace for late arrival</small>
               </div>
               <div className="shift-rules-field">
-                <label>Late Check-In Behavior</label>
-                <select
+                <Select
+                  label="Late Check-In Behavior"
                   value={checkInRules.lateCheckInBehavior}
                   onChange={(e) => setCheckInRules({ ...checkInRules, lateCheckInBehavior: e.target.value as any })}
-                >
-                  <option value="flag">Flag only</option>
-                  <option value="mark_late">Mark as late</option>
-                  <option value="half_day">Convert to half-day</option>
-                  <option value="deduct_leave">Deduct from leave</option>
-                </select>
+                  options={[
+                    { value: 'flag', label: 'Flag only' },
+                    { value: 'mark_late', label: 'Mark as late' },
+                    { value: 'half_day', label: 'Convert to half-day' },
+                    { value: 'deduct_leave', label: 'Deduct from leave' },
+                  ]}
+                />
               </div>
               <div className="shift-rules-field">
-                <label>Monthly Late Limit</label>
-                <input
+                <Input
+                  label="Monthly Late Limit"
                   type="number"
-                  value={checkInRules.monthlyLateLimit}
+                  value={checkInRules.monthlyLateLimit.toString()}
                   onChange={(e) => setCheckInRules({ ...checkInRules, monthlyLateLimit: parseInt(e.target.value) || 0 })}
                   min="0"
                 />
                 <small>Max late arrivals per month (0 = unlimited)</small>
               </div>
               <div className="shift-rules-field">
-                <label className="shift-rules-checkbox-label">
-                  <input
-                    type="checkbox"
-                    checked={checkInRules.allowEarlyCheckIn}
-                    onChange={(e) => setCheckInRules({ ...checkInRules, allowEarlyCheckIn: e.target.checked })}
-                  />
-                  <span>Allow early check-in</span>
-                </label>
+                <Checkbox
+                  label="Allow early check-in"
+                  checked={checkInRules.allowEarlyCheckIn}
+                  onChange={(e) => setCheckInRules({ ...checkInRules, allowEarlyCheckIn: e.target.checked })}
+                />
               </div>
               <div className="shift-rules-field">
-                <label className="shift-rules-checkbox-label">
-                  <input
-                    type="checkbox"
-                    checked={checkInRules.allowMultipleCheckIns}
-                    onChange={(e) => setCheckInRules({ ...checkInRules, allowMultipleCheckIns: e.target.checked })}
-                  />
-                  <span>Allow multiple check-ins per day</span>
-                </label>
+                <Checkbox
+                  label="Allow multiple check-ins per day"
+                  checked={checkInRules.allowMultipleCheckIns}
+                  onChange={(e) => setCheckInRules({ ...checkInRules, allowMultipleCheckIns: e.target.checked })}
+                />
               </div>
               <div className="shift-rules-field">
-                <label className="shift-rules-checkbox-label">
-                  <input
-                    type="checkbox"
-                    checked={checkInRules.allowManualCheckIn}
-                    onChange={(e) => setCheckInRules({ ...checkInRules, allowManualCheckIn: e.target.checked })}
-                  />
-                  <span>Allow manual check-in by HR/Admin</span>
-                </label>
+                <Checkbox
+                  label="Allow manual check-in by HR/Admin"
+                  checked={checkInRules.allowManualCheckIn}
+                  onChange={(e) => setCheckInRules({ ...checkInRules, allowManualCheckIn: e.target.checked })}
+                />
               </div>
             </div>
           )}
@@ -213,29 +210,26 @@ export const ShiftRules: React.FC<ShiftRulesProps> = ({ shiftId }) => {
           {expandedSections.has('checkout') && (
             <div className="shift-rules-section-content">
               <div className="shift-rules-field">
-                <label>Earliest Allowed Check-Out</label>
-                <input
+                <Input
+                  label="Earliest Allowed Check-Out"
                   type="number"
-                  value={checkOutRules.earliestCheckOut}
+                  value={checkOutRules.earliestCheckOut.toString()}
                   onChange={(e) => setCheckOutRules({ ...checkOutRules, earliestCheckOut: parseInt(e.target.value) || 0 })}
                   min="0"
                 />
                 <small>Minutes before shift end</small>
               </div>
               <div className="shift-rules-field">
-                <label className="shift-rules-checkbox-label">
-                  <input
-                    type="checkbox"
-                    checked={checkOutRules.autoCheckOutEnabled}
-                    onChange={(e) => setCheckOutRules({ ...checkOutRules, autoCheckOutEnabled: e.target.checked })}
-                  />
-                  <span>Enable auto check-out</span>
-                </label>
+                <Checkbox
+                  label="Enable auto check-out"
+                  checked={checkOutRules.autoCheckOutEnabled}
+                  onChange={(e) => setCheckOutRules({ ...checkOutRules, autoCheckOutEnabled: e.target.checked })}
+                />
               </div>
               {checkOutRules.autoCheckOutEnabled && (
                 <div className="shift-rules-field">
-                  <label>Auto Check-Out Time</label>
-                  <input
+                  <Input
+                    label="Auto Check-Out Time"
                     type="time"
                     value={checkOutRules.autoCheckOutTime || ''}
                     onChange={(e) => setCheckOutRules({ ...checkOutRules, autoCheckOutTime: e.target.value })}
@@ -244,35 +238,33 @@ export const ShiftRules: React.FC<ShiftRulesProps> = ({ shiftId }) => {
                 </div>
               )}
               <div className="shift-rules-field">
-                <label>Grace Period</label>
-                <input
+                <Input
+                  label="Grace Period"
                   type="number"
-                  value={checkOutRules.gracePeriod}
+                  value={checkOutRules.gracePeriod.toString()}
                   onChange={(e) => setCheckOutRules({ ...checkOutRules, gracePeriod: parseInt(e.target.value) || 0 })}
                   min="0"
                 />
                 <small>Minutes of grace for early departure</small>
               </div>
               <div className="shift-rules-field">
-                <label>Early Check-Out Behavior</label>
-                <select
+                <Select
+                  label="Early Check-Out Behavior"
                   value={checkOutRules.earlyCheckOutBehavior}
                   onChange={(e) => setCheckOutRules({ ...checkOutRules, earlyCheckOutBehavior: e.target.value as any })}
-                >
-                  <option value="flag">Flag only</option>
-                  <option value="half_day">Mark as half-day</option>
-                  <option value="absent">Mark as absent</option>
-                </select>
+                  options={[
+                    { value: 'flag', label: 'Flag only' },
+                    { value: 'half_day', label: 'Mark as half-day' },
+                    { value: 'absent', label: 'Mark as absent' },
+                  ]}
+                />
               </div>
               <div className="shift-rules-field">
-                <label className="shift-rules-checkbox-label">
-                  <input
-                    type="checkbox"
-                    checked={checkOutRules.allowManualCheckOut}
-                    onChange={(e) => setCheckOutRules({ ...checkOutRules, allowManualCheckOut: e.target.checked })}
-                  />
-                  <span>Allow manual check-out by HR/Admin</span>
-                </label>
+                <Checkbox
+                  label="Allow manual check-out by HR/Admin"
+                  checked={checkOutRules.allowManualCheckOut}
+                  onChange={(e) => setCheckOutRules({ ...checkOutRules, allowManualCheckOut: e.target.checked })}
+                />
               </div>
             </div>
           )}
@@ -349,11 +341,11 @@ export const ShiftRules: React.FC<ShiftRulesProps> = ({ shiftId }) => {
           {expandedSections.has('hours') && (
             <div className="shift-rules-section-content">
               <div className="shift-rules-field">
-                <label>Minimum Hours for Full Day</label>
-                <input
+                <Input
+                  label="Minimum Hours for Full Day"
                   type="number"
                   step="0.5"
-                  value={attendanceRules.minHoursForFullDay}
+                  value={attendanceRules.minHoursForFullDay.toString()}
                   onChange={(e) => setAttendanceRules({ ...attendanceRules, minHoursForFullDay: parseFloat(e.target.value) || 0 })}
                   min="0"
                   max="24"
@@ -361,11 +353,11 @@ export const ShiftRules: React.FC<ShiftRulesProps> = ({ shiftId }) => {
                 <small>Hours required to count as full day</small>
               </div>
               <div className="shift-rules-field">
-                <label>Minimum Hours for Half Day</label>
-                <input
+                <Input
+                  label="Minimum Hours for Half Day"
                   type="number"
                   step="0.5"
-                  value={attendanceRules.minHoursForHalfDay}
+                  value={attendanceRules.minHoursForHalfDay.toString()}
                   onChange={(e) => setAttendanceRules({ ...attendanceRules, minHoursForHalfDay: parseFloat(e.target.value) || 0 })}
                   min="0"
                   max="24"
@@ -373,14 +365,11 @@ export const ShiftRules: React.FC<ShiftRulesProps> = ({ shiftId }) => {
                 <small>Hours required to count as half day</small>
               </div>
               <div className="shift-rules-field">
-                <label className="shift-rules-checkbox-label">
-                  <input
-                    type="checkbox"
-                    checked={attendanceRules.excludeUnpaidBreaks}
-                    onChange={(e) => setAttendanceRules({ ...attendanceRules, excludeUnpaidBreaks: e.target.checked })}
-                  />
-                  <span>Exclude unpaid breaks from working hours</span>
-                </label>
+                <Checkbox
+                  label="Exclude unpaid breaks from working hours"
+                  checked={attendanceRules.excludeUnpaidBreaks}
+                  onChange={(e) => setAttendanceRules({ ...attendanceRules, excludeUnpaidBreaks: e.target.checked })}
+                />
               </div>
             </div>
           )}
@@ -415,15 +404,16 @@ export const ShiftRules: React.FC<ShiftRulesProps> = ({ shiftId }) => {
                 <small>Minutes early = automatic half-day</small>
               </div>
               <div className="shift-rules-field">
-                <label>Half-Day Treatment</label>
-                <select
+                <Select
+                  label="Half-Day Treatment"
                   value={attendanceRules.halfDayTreatment}
                   onChange={(e) => setAttendanceRules({ ...attendanceRules, halfDayTreatment: e.target.value as any })}
-                >
-                  <option value="deduct_leave">Deduct half leave</option>
-                  <option value="unpaid">Mark as unpaid</option>
-                  <option value="carry_forward">Carry forward for payroll</option>
-                </select>
+                  options={[
+                    { value: 'deduct_leave', label: 'Deduct half leave' },
+                    { value: 'unpaid', label: 'Mark as unpaid' },
+                    { value: 'carry_forward', label: 'Carry forward for payroll' },
+                  ]}
+                />
               </div>
             </div>
           )}
@@ -438,34 +428,25 @@ export const ShiftRules: React.FC<ShiftRulesProps> = ({ shiftId }) => {
           {expandedSections.has('absent') && (
             <div className="shift-rules-section-content">
               <div className="shift-rules-field">
-                <label className="shift-rules-checkbox-label">
-                  <input
-                    type="checkbox"
-                    checked={attendanceRules.markAbsentOnNoCheckIn}
-                    onChange={(e) => setAttendanceRules({ ...attendanceRules, markAbsentOnNoCheckIn: e.target.checked })}
-                  />
-                  <span>Mark absent if no check-in</span>
-                </label>
+                <Checkbox
+                  label="Mark absent if no check-in"
+                  checked={attendanceRules.markAbsentOnNoCheckIn}
+                  onChange={(e) => setAttendanceRules({ ...attendanceRules, markAbsentOnNoCheckIn: e.target.checked })}
+                />
               </div>
               <div className="shift-rules-field">
-                <label className="shift-rules-checkbox-label">
-                  <input
-                    type="checkbox"
-                    checked={attendanceRules.markAbsentBelowMinHours}
-                    onChange={(e) => setAttendanceRules({ ...attendanceRules, markAbsentBelowMinHours: e.target.checked })}
-                  />
-                  <span>Mark absent if working hours below minimum</span>
-                </label>
+                <Checkbox
+                  label="Mark absent if working hours below minimum"
+                  checked={attendanceRules.markAbsentBelowMinHours}
+                  onChange={(e) => setAttendanceRules({ ...attendanceRules, markAbsentBelowMinHours: e.target.checked })}
+                />
               </div>
               <div className="shift-rules-field">
-                <label className="shift-rules-checkbox-label">
-                  <input
-                    type="checkbox"
-                    checked={attendanceRules.allowManualOverride}
-                    onChange={(e) => setAttendanceRules({ ...attendanceRules, allowManualOverride: e.target.checked })}
-                  />
-                  <span>Allow manual override by HR/Admin (requires reason)</span>
-                </label>
+                <Checkbox
+                  label="Allow manual override by HR/Admin (requires reason)"
+                  checked={attendanceRules.allowManualOverride}
+                  onChange={(e) => setAttendanceRules({ ...attendanceRules, allowManualOverride: e.target.checked })}
+                />
               </div>
             </div>
           )}
@@ -490,15 +471,16 @@ export const ShiftRules: React.FC<ShiftRulesProps> = ({ shiftId }) => {
                 <small>Max minutes break can be exceeded (0 = no limit)</small>
               </div>
               <div className="shift-rules-field">
-                <label>Break Overuse Behavior</label>
-                <select
+                <Select
+                  label="Break Overuse Behavior"
                   value={attendanceRules.breakOveruseBehavior}
                   onChange={(e) => setAttendanceRules({ ...attendanceRules, breakOveruseBehavior: e.target.value as any })}
-                >
-                  <option value="flag">Flag only</option>
-                  <option value="deduct_hours">Deduct from working hours</option>
-                  <option value="half_day">Mark as half-day</option>
-                </select>
+                  options={[
+                    { value: 'flag', label: 'Flag only' },
+                    { value: 'deduct_hours', label: 'Deduct from working hours' },
+                    { value: 'half_day', label: 'Mark as half-day' },
+                  ]}
+                />
               </div>
             </div>
           )}
@@ -513,57 +495,48 @@ export const ShiftRules: React.FC<ShiftRulesProps> = ({ shiftId }) => {
           {expandedSections.has('overtime') && (
             <div className="shift-rules-section-content">
               <div className="shift-rules-field">
-                <label className="shift-rules-checkbox-label">
-                  <input
-                    type="checkbox"
-                    checked={overtimeRules.enabled}
-                    onChange={(e) => setOvertimeRules({ ...overtimeRules, enabled: e.target.checked })}
-                  />
-                  <span>Enable overtime calculation</span>
-                </label>
+                <Checkbox
+                  label="Enable overtime calculation"
+                  checked={overtimeRules.enabled}
+                  onChange={(e) => setOvertimeRules({ ...overtimeRules, enabled: e.target.checked })}
+                />
               </div>
               {overtimeRules.enabled && (
                 <>
                   <div className="shift-rules-field">
-                    <label>Minimum Minutes to Qualify</label>
-                    <input
+                    <Input
+                      label="Minimum Minutes to Qualify"
                       type="number"
-                      value={overtimeRules.minimumMinutes}
+                      value={overtimeRules.minimumMinutes.toString()}
                       onChange={(e) => setOvertimeRules({ ...overtimeRules, minimumMinutes: parseInt(e.target.value) || 0 })}
                       min="0"
                     />
                     <small>Minimum extra minutes to count as overtime</small>
                   </div>
                   <div className="shift-rules-field">
-                    <label>Max Overtime per Day (hours)</label>
-                    <input
+                    <Input
+                      label="Max Overtime per Day (hours)"
                       type="number"
                       step="0.5"
-                      value={overtimeRules.maxHoursPerDay || ''}
+                      value={overtimeRules.maxHoursPerDay?.toString() || ''}
                       onChange={(e) => setOvertimeRules({ ...overtimeRules, maxHoursPerDay: e.target.value ? parseFloat(e.target.value) : undefined })}
                       min="0"
                     />
                     <small>Maximum overtime hours per day (leave empty for no limit)</small>
                   </div>
                   <div className="shift-rules-field">
-                    <label className="shift-rules-checkbox-label">
-                      <input
-                        type="checkbox"
-                        checked={overtimeRules.isPaid}
-                        onChange={(e) => setOvertimeRules({ ...overtimeRules, isPaid: e.target.checked })}
-                      />
-                      <span>Overtime is paid</span>
-                    </label>
+                    <Checkbox
+                      label="Overtime is paid"
+                      checked={overtimeRules.isPaid}
+                      onChange={(e) => setOvertimeRules({ ...overtimeRules, isPaid: e.target.checked })}
+                    />
                   </div>
                   <div className="shift-rules-field">
-                    <label className="shift-rules-checkbox-label">
-                      <input
-                        type="checkbox"
-                        checked={overtimeRules.isCompOffEligible}
-                        onChange={(e) => setOvertimeRules({ ...overtimeRules, isCompOffEligible: e.target.checked })}
-                      />
-                      <span>Overtime is comp-off eligible</span>
-                    </label>
+                    <Checkbox
+                      label="Overtime is comp-off eligible"
+                      checked={overtimeRules.isCompOffEligible}
+                      onChange={(e) => setOvertimeRules({ ...overtimeRules, isCompOffEligible: e.target.checked })}
+                    />
                   </div>
                 </>
               )}
@@ -580,17 +553,18 @@ export const ShiftRules: React.FC<ShiftRulesProps> = ({ shiftId }) => {
           {expandedSections.has('holiday') && (
             <div className="shift-rules-section-content">
               <div className="shift-rules-field">
-                <label>Holiday Behavior</label>
-                <select
+                <Select
+                  label="Holiday Behavior"
                   value={holidayBehavior}
                   onChange={(e) => {
                     setHolidayBehavior(e.target.value as any);
                   }}
-                >
-                  <option value="ignore">Ignore attendance (holiday off)</option>
-                  <option value="paid">Count as paid holiday</option>
-                  <option value="optional_with_compoff">Allow optional work with comp-off</option>
-                </select>
+                  options={[
+                    { value: 'ignore', label: 'Ignore attendance (holiday off)' },
+                    { value: 'paid', label: 'Count as paid holiday' },
+                    { value: 'optional_with_compoff', label: 'Allow optional work with comp-off' },
+                  ]}
+                />
                 <small>What happens if employee checks in on a holiday</small>
               </div>
             </div>

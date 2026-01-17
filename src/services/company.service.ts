@@ -3,6 +3,7 @@
  */
 
 import { api } from './api';
+import { extractApiData } from '@/utils/api';
 
 export interface CompanyProfile {
   displayName: string;
@@ -31,7 +32,7 @@ export interface UpdateCompanyRequest {
 class CompanyService {
   async getCompany(): Promise<CompanyProfile> {
     const response = await api.get('/company');
-    return response.data.data as CompanyProfile;
+    return extractApiData<CompanyProfile>(response);
   }
 
   /**
@@ -56,11 +57,11 @@ class CompanyService {
           'Content-Type': 'multipart/form-data',
         },
       });
-      return response.data.data as CompanyProfile;
+      return extractApiData<CompanyProfile>(response);
     }
 
     const response = await api.patch('/company', data);
-    return response.data.data as CompanyProfile;
+    return extractApiData<CompanyProfile>(response);
   }
 }
 

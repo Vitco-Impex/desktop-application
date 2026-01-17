@@ -7,6 +7,10 @@ import React, { useState, useEffect } from 'react';
 import { shiftService } from '@/services/shift.service';
 import { Shift, CreateShiftRequest } from '@/types/shift';
 import { Button } from '@/shared/components/ui/Button';
+import { Input } from '@/shared/components/ui/Input';
+import { Select } from '@/shared/components/ui/Select';
+import { Checkbox } from '@/shared/components/ui/Checkbox';
+import { extractErrorMessage } from '@/utils/error';
 import './ShiftForm.css';
 
 interface ShiftFormProps {
@@ -57,8 +61,7 @@ export const ShiftForm: React.FC<ShiftFormProps> = ({ shift, onClose, onSuccess 
         onSuccess(createdShift.id);
       }
     } catch (err: any) {
-      const errorMessage = err.response?.data?.error || err.response?.data?.message || err.message || 'Failed to save shift';
-      setError(errorMessage);
+      setError(extractErrorMessage(err, 'Failed to save shift'));
     } finally {
       setLoading(false);
     }
@@ -87,9 +90,8 @@ export const ShiftForm: React.FC<ShiftFormProps> = ({ shift, onClose, onSuccess 
       <form onSubmit={handleSubmit} className="shift-form-content">
         <div className="shift-form-row">
           <div className="shift-form-field">
-            <label htmlFor="code">Shift Code *</label>
-            <input
-              id="code"
+            <Input
+              label="Shift Code *"
               type="text"
               value={formData.code}
               onChange={(e) => setFormData(prev => ({ ...prev, code: e.target.value.toUpperCase() }))}
@@ -101,9 +103,8 @@ export const ShiftForm: React.FC<ShiftFormProps> = ({ shift, onClose, onSuccess 
           </div>
 
           <div className="shift-form-field">
-            <label htmlFor="name">Shift Name *</label>
-            <input
-              id="name"
+            <Input
+              label="Shift Name *"
               type="text"
               value={formData.name}
               onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
@@ -115,9 +116,8 @@ export const ShiftForm: React.FC<ShiftFormProps> = ({ shift, onClose, onSuccess 
 
         <div className="shift-form-row">
           <div className="shift-form-field">
-            <label htmlFor="startTime">Start Time *</label>
-            <input
-              id="startTime"
+            <Input
+              label="Start Time *"
               type="time"
               value={formData.startTime}
               onChange={(e) => setFormData(prev => ({ ...prev, startTime: e.target.value }))}
@@ -126,9 +126,8 @@ export const ShiftForm: React.FC<ShiftFormProps> = ({ shift, onClose, onSuccess 
           </div>
 
           <div className="shift-form-field">
-            <label htmlFor="endTime">End Time *</label>
-            <input
-              id="endTime"
+            <Input
+              label="End Time *"
               type="time"
               value={formData.endTime}
               onChange={(e) => setFormData(prev => ({ ...prev, endTime: e.target.value }))}
@@ -137,16 +136,16 @@ export const ShiftForm: React.FC<ShiftFormProps> = ({ shift, onClose, onSuccess 
           </div>
 
           <div className="shift-form-field">
-            <label htmlFor="status">Status *</label>
-            <select
-              id="status"
+            <Select
+              label="Status *"
               value={formData.status}
               onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value as 'active' | 'inactive' }))}
               required
-            >
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-            </select>
+              options={[
+                { value: 'active', label: 'Active' },
+                { value: 'inactive', label: 'Inactive' },
+              ]}
+            />
           </div>
         </div>
 
@@ -154,14 +153,12 @@ export const ShiftForm: React.FC<ShiftFormProps> = ({ shift, onClose, onSuccess 
           <label>Working Days *</label>
           <div className="shift-form-days">
             {dayLabels.map((label, index) => (
-              <label key={index} className="shift-form-day-checkbox">
-                <input
-                  type="checkbox"
-                  checked={formData.workingDays.includes(index)}
-                  onChange={() => toggleWorkingDay(index)}
-                />
-                <span>{label.substring(0, 3)}</span>
-              </label>
+              <Checkbox
+                key={index}
+                label={label.substring(0, 3)}
+                checked={formData.workingDays.includes(index)}
+                onChange={() => toggleWorkingDay(index)}
+              />
             ))}
           </div>
           <small>Select the days this shift operates</small>

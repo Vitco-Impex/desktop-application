@@ -4,7 +4,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { EmployeeDetails } from '@/types';
-import { SectionWrapper } from '@/components/EmployeeDetails/SectionWrapper';
+import { CollapsibleSection } from '@/shared/components/ui';
+import { formatDate } from '@/utils/date';
 import './SystemAuditSection.css';
 
 interface SystemAuditSectionProps {
@@ -39,19 +40,9 @@ export const SystemAuditSection: React.FC<SystemAuditSectionProps> = ({
     }
   }, [isExpanded, employeeId]);
 
-  const formatDate = (dateString?: string): string => {
-    if (!dateString) return '—';
-    return new Date(dateString).toLocaleString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
 
   return (
-    <SectionWrapper
+    <CollapsibleSection
       title="System & Audit Information"
       icon="📊"
       isExpanded={isExpanded}
@@ -62,28 +53,28 @@ export const SystemAuditSection: React.FC<SystemAuditSectionProps> = ({
           <div className="form-field">
             <label className="field-label">Account Created At</label>
             <div className="field-value read-only">
-              {formatDate(employee.createdAt)}
+              {formatDate(employee.createdAt, { includeTime: true })}
             </div>
           </div>
 
           <div className="form-field">
             <label className="field-label">Last Updated</label>
             <div className="field-value read-only">
-              {formatDate(employee.updatedAt)}
+              {formatDate(employee.updatedAt, { includeTime: true })}
             </div>
           </div>
 
           <div className="form-field">
             <label className="field-label">Last Login</label>
             <div className="field-value read-only">
-              {formatDate(employee.lastLogin)}
+              {formatDate(employee.lastLogin, { includeTime: true })}
             </div>
           </div>
 
           <div className="form-field">
             <label className="field-label">Last Attendance Action</label>
             <div className="field-value read-only">
-              {formatDate(employee.lastAttendanceAction)}
+              {formatDate(employee.lastAttendanceAction, { includeTime: true })}
             </div>
           </div>
 
@@ -126,7 +117,7 @@ export const SystemAuditSection: React.FC<SystemAuditSectionProps> = ({
           </div>
         )}
       </div>
-    </SectionWrapper>
+    </CollapsibleSection>
   );
 };
 

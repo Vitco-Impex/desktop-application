@@ -4,6 +4,7 @@
 
 import { api } from './api';
 import { User, UserRole, EmployeeDetails, UpdateEmployeeDetailsRequest } from '@/types';
+import { extractApiData } from '@/utils/api';
 
 export interface ActiveSessionInfo {
   userId: string;
@@ -65,7 +66,7 @@ class EmployeeService {
    */
   async getAllEmployees(): Promise<User[]> {
     const response = await api.get('/employees');
-    return response.data.data;
+    return extractApiData<User[]>(response);
   }
 
   /**
@@ -73,7 +74,7 @@ class EmployeeService {
    */
   async getEmployeeById(id: string): Promise<User> {
     const response = await api.get(`/employees/${id}`);
-    return response.data.data;
+    return extractApiData<User>(response);
   }
 
   /**
@@ -81,7 +82,7 @@ class EmployeeService {
    */
   async createEmployee(request: CreateEmployeeRequest): Promise<User> {
     const response = await api.post('/employees', request);
-    return response.data.data;
+    return extractApiData<User>(response);
   }
 
   /**
@@ -89,7 +90,7 @@ class EmployeeService {
    */
   async updateEmployee(id: string, request: UpdateEmployeeRequest): Promise<User> {
     const response = await api.put(`/employees/${id}`, request);
-    return response.data.data;
+    return extractApiData<User>(response);
   }
 
   /**
@@ -111,7 +112,7 @@ class EmployeeService {
    */
   async getProxyPermission(userId: string): Promise<{ canActAsProxy: boolean }> {
     const response = await api.get(`/employees/${userId}/proxy-permission`);
-    return response.data.data;
+    return extractApiData<{ canActAsProxy: boolean }>(response);
   }
 
   /**
@@ -119,7 +120,7 @@ class EmployeeService {
    */
   async updateProxyPermission(userId: string, canActAsProxy: boolean): Promise<{ canActAsProxy: boolean }> {
     const response = await api.put(`/employees/${userId}/proxy-permission`, { canActAsProxy });
-    return response.data.data;
+    return extractApiData<{ canActAsProxy: boolean }>(response);
   }
 
   /**
@@ -127,7 +128,7 @@ class EmployeeService {
    */
   async getAllProxyEnabledUsers(): Promise<User[]> {
     const response = await api.get('/employees/proxy-enabled');
-    return response.data.data;
+    return extractApiData<User[]>(response);
   }
 
   /**
@@ -142,7 +143,7 @@ class EmployeeService {
    */
   async getActiveSessions(): Promise<ActiveSessionInfo[]> {
     const response = await api.get('/auth/sessions');
-    return response.data.data;
+    return extractApiData<ActiveSessionInfo[]>(response);
   }
 }
 
@@ -157,7 +158,7 @@ class EmployeeDetailsService {
    */
   async getEmployeeDetails(employeeId: string): Promise<EmployeeDetails> {
     const response = await api.get(`/employees/${employeeId}/details`);
-    return response.data.data;
+    return extractApiData<EmployeeDetails>(response);
   }
 
   /**
@@ -168,7 +169,7 @@ class EmployeeDetailsService {
     request: UpdateEmployeeDetailsRequest
   ): Promise<EmployeeDetails> {
     const response = await api.patch(`/employees/${employeeId}/details`, request);
-    return response.data.data;
+    return extractApiData<EmployeeDetails>(response);
   }
 }
 

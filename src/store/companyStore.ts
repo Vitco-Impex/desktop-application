@@ -4,6 +4,7 @@
 
 import { create } from 'zustand';
 import { CompanyProfile, companyService } from '@/services/company.service';
+import { logger } from '@/shared/utils/logger';
 
 export interface CompanyState {
   company: CompanyProfile | null;
@@ -51,7 +52,9 @@ export const companyStore = create<CompanyState>((set) => ({
         // ignore
       }
     } catch (error: any) {
-      console.error('[companyStore] Failed to load company profile:', error);
+      logger.error('[CompanyStore] Failed to load company profile', error, {
+        message: error?.message,
+      });
       // Fallback to defaults but record error
       set({
         company: defaultCompany,

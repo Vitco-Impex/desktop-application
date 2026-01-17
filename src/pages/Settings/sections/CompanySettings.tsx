@@ -10,6 +10,7 @@ import { branchService } from '@/services/branch.service';
 import { Branch, CreateBranchRequest, UpdateBranchRequest } from '@/types';
 import { employeeService } from '@/services/employee.service';
 import { User, UserRole } from '@/types';
+import { logger } from '@/shared/utils/logger';
 
 const STANDARD_DEPARTMENTS = ['attendance', 'inventory', 'hr', 'finance', 'sales'];
 import './CompanySettings.css';
@@ -97,7 +98,7 @@ export const CompanySettings: React.FC = () => {
       );
       setManagers(managersList);
     } catch (err) {
-      console.error('Failed to load managers:', err);
+      logger.error('[CompanySettings] Failed to load managers', err);
     }
   };
 

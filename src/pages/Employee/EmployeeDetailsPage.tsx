@@ -14,7 +14,8 @@ import { ShiftAttendanceSection } from './sections/ShiftAttendanceSection';
 import { TaskPreferencesSection } from './sections/TaskPreferencesSection';
 import { PermissionsSection } from './sections/PermissionsSection';
 import { SystemAuditSection } from './sections/SystemAuditSection';
-import { ConfirmationModal } from '@/components/EmployeeDetails/ConfirmationModal';
+import { ConfirmDialog } from '@/shared/components/modals';
+import { LoadingState, ErrorState } from '@/shared/components/data-display';
 import './EmployeeDetailsPage.css';
 
 export const EmployeeDetailsPage: React.FC = () => {
@@ -145,7 +146,7 @@ export const EmployeeDetailsPage: React.FC = () => {
   if (loading && !employee) {
     return (
       <div className="employee-details-page">
-        <div className="page-loading">Loading employee details...</div>
+        <LoadingState message="Loading employee details..." />
       </div>
     );
   }
@@ -153,10 +154,12 @@ export const EmployeeDetailsPage: React.FC = () => {
   if (error && !employee) {
     return (
       <div className="employee-details-page">
-        <div className="page-error">
-          <p>{error}</p>
-          <button onClick={() => navigate(-1)}>Go Back</button>
-        </div>
+        <ErrorState
+          title="Error loading employee"
+          message={error}
+          onRetry={() => navigate(-1)}
+          retryLabel="Go Back"
+        />
       </div>
     );
   }
@@ -164,10 +167,12 @@ export const EmployeeDetailsPage: React.FC = () => {
   if (!employee) {
     return (
       <div className="employee-details-page">
-        <div className="page-error">
-          <p>Employee not found</p>
-          <button onClick={() => navigate(-1)}>Go Back</button>
-        </div>
+        <ErrorState
+          title="Employee not found"
+          message="The employee you're looking for doesn't exist or has been deleted."
+          onRetry={() => navigate(-1)}
+          retryLabel="Go Back"
+        />
       </div>
     );
   }
@@ -260,12 +265,15 @@ export const EmployeeDetailsPage: React.FC = () => {
 
       {/* Confirmation Modal */}
       {showConfirmModal && pendingUpdate && (
-        <ConfirmationModal
+        <ConfirmDialog
           isOpen={showConfirmModal}
           onConfirm={(reason) => handleConfirmUpdate(reason)}
           onCancel={handleCancelUpdate}
           changes={pendingUpdate.request}
           employeeName={employee.name}
+          message={`You are about to make changes to ${employee.name}`}
+          requiresReason={pendingUpdate.confirmRequired}
+          variant="warning"
         />
       )}
     </div>

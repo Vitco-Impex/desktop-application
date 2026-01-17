@@ -14,6 +14,8 @@ import {
 } from '@/services/wifi.service';
 import { WifiNetworkList } from '@/features/wifi/components/WifiNetworkList';
 import { WifiNetworkForm } from '@/features/wifi/components/WifiNetworkForm';
+import { extractErrorMessage } from '@/utils/error';
+import { logger } from '@/shared/utils/logger';
 import './AttendanceSettings.css';
 // Import shared styles from PersonalSettings
 import './PersonalSettings.css';
@@ -45,7 +47,7 @@ export const AttendanceSettings: React.FC = () => {
         const result = await window.electronAPI.getAutoCheckInEnabled();
         setAutoCheckInEnabled(result.enabled);
       } catch (err) {
-        console.error('Failed to load auto check-in setting:', err);
+        logger.error('[AttendanceSettings] Failed to load auto check-in setting', err);
       }
     }
   };
@@ -81,7 +83,7 @@ export const AttendanceSettings: React.FC = () => {
       const data = await wifiService.getAllWifiNetworks(showInactive);
       setNetworks(data);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to load Wi-Fi networks');
+      setError(extractErrorMessage(err, 'Failed to load Wi-Fi networks'));
     } finally {
       setLoading(false);
     }
@@ -158,7 +160,7 @@ export const AttendanceSettings: React.FC = () => {
       // Clear success message after 3 seconds
       setTimeout(() => setSuccess(null), 3000);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to delete Wi-Fi network');
+      setError(extractErrorMessage(err, 'Failed to delete Wi-Fi network'));
     } finally {
       setLoading(false);
     }
@@ -180,7 +182,7 @@ export const AttendanceSettings: React.FC = () => {
       // Clear success message after 3 seconds
       setTimeout(() => setSuccess(null), 3000);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to update Wi-Fi network status');
+      setError(extractErrorMessage(err, 'Failed to update Wi-Fi network status'));
     } finally {
       setLoading(false);
     }

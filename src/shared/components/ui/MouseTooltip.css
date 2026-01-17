@@ -1,0 +1,17 @@
+/**
+ * Mouse Tooltip Styles
+ */
+
+.mouse-tooltip {
+  position: fixed;
+  z-index: 9999;
+  pointer-events: none;
+  background-color: rgba(0, 0, 0, 0.9);
+  color: white;
+  font-size: 12px;
+  padding: 6px 12px;
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  white-space: nowrap;
+  transition: opacity 0.1s;
+}

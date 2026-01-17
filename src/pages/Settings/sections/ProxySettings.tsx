@@ -7,6 +7,7 @@ import React, { useState, useEffect } from 'react';
 import { authStore } from '@/store/authStore';
 import { employeeService } from '@/services/employee.service';
 import { ProxyServerStatus } from '@/types';
+import { logger } from '@/shared/utils/logger';
 import './ProxySettings.css';
 
 export const ProxySettings: React.FC = () => {
@@ -38,7 +39,7 @@ export const ProxySettings: React.FC = () => {
         const result = await window.electronAPI.getProxyAutoStartEnabled();
         setProxyAutoStartEnabled(result.enabled);
       } catch (err) {
-        console.error('Failed to load proxy auto-start setting:', err);
+        logger.error('[ProxySettings] Failed to load proxy auto-start setting', err);
       }
     };
 
@@ -65,7 +66,7 @@ export const ProxySettings: React.FC = () => {
           });
         }
       } catch (err) {
-        console.error('Failed to load proxy status:', err);
+        logger.error('[ProxySettings] Failed to load proxy status', err);
       }
     };
 
@@ -90,7 +91,10 @@ export const ProxySettings: React.FC = () => {
       const permission = await employeeService.getProxyPermission(user.id);
       setHasPermission(permission.canActAsProxy);
     } catch (err: any) {
-      console.error('Failed to check proxy permission:', err);
+      logger.error('[ProxySettings] Failed to check proxy permission', err, {
+        userId: user?.id,
+        role: user?.role,
+      });
       // If user is admin, still allow (fallback)
       setHasPermission(user?.role === 'admin');
     } finally {
@@ -112,7 +116,7 @@ export const ProxySettings: React.FC = () => {
     // Check if proxy methods are available
     if (typeof window.electronAPI.startProxyServer !== 'function' || typeof window.electronAPI.stopProxyServer !== 'function') {
       setError('Proxy server functionality is not available. Please restart the application.');
-      console.error('Missing proxy methods:', {
+      logger.error('[ProxySettings] Missing proxy methods', undefined, {
         hasStartProxyServer: typeof window.electronAPI.startProxyServer,
         hasStopProxyServer: typeof window.electronAPI.stopProxyServer,
         hasGetProxyStatus: typeof window.electronAPI.getProxyStatus,

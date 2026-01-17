@@ -45,22 +45,6 @@ export const AdminReportDetailModal: React.FC<AdminReportDetailModalProps> = ({
   onClose,
   onDelete,
 }) => {
-  const formatDate = (dateString: string): string => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
-
-  const formatFileSize = (bytes: number): string => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  };
 
   const getFileIcon = (mimeType: string): string => {
     if (mimeType.startsWith('image/')) return '🖼️';
@@ -75,7 +59,7 @@ export const AdminReportDetailModal: React.FC<AdminReportDetailModalProps> = ({
     try {
       await reportService.downloadAttachment(url, fileName);
     } catch (error: any) {
-      alert('Failed to download file: ' + (error.message || 'Unknown error'));
+      alert('Failed to download file: ' + extractErrorMessage(error, 'Unknown error'));
     }
   };
 
@@ -99,7 +83,7 @@ export const AdminReportDetailModal: React.FC<AdminReportDetailModalProps> = ({
           <div className="report-header-section">
             <div className="report-title-section">
               <h1 className="report-title">{report.title}</h1>
-              <span className="report-date">{formatDate(report.createdAt)}</span>
+              <span className="report-date">{formatDate(report.createdAt, { includeTime: true, format: 'long' })}</span>
             </div>
 
             <div className="employee-section">

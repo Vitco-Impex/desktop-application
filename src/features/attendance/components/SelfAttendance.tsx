@@ -16,6 +16,7 @@ import {
   AttendanceRecord,
 } from '@/types';
 import { NetworkInfo } from '@/types/electron';
+import { logger } from '@/shared/utils/logger';
 import './SelfAttendance.css';
 
 interface SelfAttendanceProps {
@@ -100,7 +101,7 @@ export const SelfAttendance: React.FC<SelfAttendanceProps> = ({ canMarkAttendanc
   };
 
   const checkNetworkStatus = async () => {
-    console.log('[Frontend DEBUG] checkNetworkStatus() called');
+    logger.debug('[SelfAttendance] checkNetworkStatus() called');
     // Only check network if Electron API is available (desktop app)
     if (!window.electronAPI) {
        
@@ -125,9 +126,9 @@ export const SelfAttendance: React.FC<SelfAttendanceProps> = ({ canMarkAttendanc
 
     try {
       // Get current network info from Electron (WiFi or Ethernet)
-      console.log('[Frontend DEBUG] Calling window.electronAPI.getCurrentNetwork()...');
+      logger.debug('[SelfAttendance] Calling window.electronAPI.getCurrentNetwork()');
       const networkInfo: NetworkInfo = await window.electronAPI.getCurrentNetwork();
-      console.log('[Frontend DEBUG] getCurrentNetwork() returned:', JSON.stringify(networkInfo, null, 2));
+      logger.debug('[SelfAttendance] getCurrentNetwork() returned', { networkInfo });
 
       if (networkInfo.type === 'none') {
          
@@ -165,7 +166,7 @@ export const SelfAttendance: React.FC<SelfAttendanceProps> = ({ canMarkAttendanc
          
         validation = await wifiService.validateNetwork(validationRequest);
       } else {
-        console.error('[Frontend DEBUG] Invalid network information structure');
+        logger.error('[SelfAttendance] Invalid network information structure', undefined, { networkInfo });
         setNetworkValidation({
           isValid: false,
           networkInfo: null,
@@ -176,7 +177,7 @@ export const SelfAttendance: React.FC<SelfAttendanceProps> = ({ canMarkAttendanc
         return;
       }
 
-      console.log('[Frontend DEBUG] Validation result:', JSON.stringify(validation, null, 2));
+      logger.debug('[SelfAttendance] Validation result', { validation });
       setNetworkValidation({
         isValid: validation.allowed,
         networkInfo: networkInfo,
@@ -185,8 +186,7 @@ export const SelfAttendance: React.FC<SelfAttendanceProps> = ({ canMarkAttendanc
       });
        
     } catch (err: any) {
-      console.error('[Frontend DEBUG] ✗ Error checking network status:', err);
-      console.error('[Frontend DEBUG] Error details:', {
+      logger.error('[SelfAttendance] Error checking network status', err, {
         message: err.message,
         response: err.response?.data,
         stack: err.stack,
@@ -199,7 +199,7 @@ export const SelfAttendance: React.FC<SelfAttendanceProps> = ({ canMarkAttendanc
       });
     } finally {
       isCheckingWifi.current = false;
-      console.log('[Frontend DEBUG] checkNetworkStatus() completed');
+      logger.debug('[SelfAttendance] checkNetworkStatus() completed');
     }
   };
 

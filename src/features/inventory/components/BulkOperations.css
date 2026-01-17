@@ -1,0 +1,109 @@
+.bulk-operations {
+  width: 100%;
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.bulk-operations-card {
+  padding: 24px;
+}
+
+.bulk-operations-card h2 {
+  margin-top: 0;
+  margin-bottom: 24px;
+}
+
+.operation-selector {
+  margin-bottom: 24px;
+}
+
+.operation-selector label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+
+.form-group {
+  margin-bottom: 24px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+
+.help-text {
+  display: block;
+  font-size: 12px;
+  color: #666;
+  font-weight: normal;
+  margin-top: 4px;
+}
+
+.csv-input {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 13px;
+  resize: vertical;
+}
+
+.form-actions {
+  margin-top: 24px;
+}
+
+.results-section {
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 2px solid #e0e0e0;
+}
+
+.results-section h3 {
+  margin-top: 0;
+  margin-bottom: 16px;
+}
+
+.results-list {
+  max-height: 400px;
+  overflow-y: auto;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  padding: 12px;
+  background-color: #f9f9f9;
+}
+
+.result-item {
+  padding: 8px;
+  margin-bottom: 4px;
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+.result-item.success {
+  background-color: #e8f5e9;
+  color: #2e7d32;
+}
+
+.result-item.error {
+  background-color: #ffebee;
+  color: #c62828;
+}
+
+.error-message {
+  padding: 12px;
+  background-color: #ffebee;
+  color: #c62828;
+  border-radius: 4px;
+  margin-bottom: 16px;
+}
+
+.success-message {
+  padding: 12px;
+  background-color: #e8f5e9;
+  color: #2e7d32;
+  border-radius: 4px;
+  margin-bottom: 16px;
+}

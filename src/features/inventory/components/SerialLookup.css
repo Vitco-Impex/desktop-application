@@ -1,0 +1,194 @@
+.serial-lookup {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.serial-search-card {
+  margin-bottom: 20px;
+}
+
+.serial-search-card h2 {
+  margin-top: 0;
+  margin-bottom: 20px;
+}
+
+.search-section {
+  margin-bottom: 20px;
+}
+
+.search-input-group {
+  display: flex;
+  gap: 12px;
+}
+
+.serial-details-card,
+.serial-history-card {
+  margin-bottom: 20px;
+}
+
+.serial-details-card h3,
+.serial-history-card h3 {
+  margin-top: 0;
+  margin-bottom: 20px;
+  border-bottom: 2px solid #e0e0e0;
+  padding-bottom: 10px;
+}
+
+.details-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.detail-item {
+  display: flex;
+  flex-direction: column;
+}
+
+.detail-item.full-width {
+  grid-column: 1 / -1;
+}
+
+.detail-item label {
+  font-weight: 600;
+  color: #666;
+  margin-bottom: 4px;
+  font-size: 14px;
+}
+
+.detail-value {
+  color: #333;
+  font-size: 15px;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.status-available {
+  background-color: #e8f5e9;
+  color: #2e7d32;
+}
+
+.status-reserved {
+  background-color: #fff3e0;
+  color: #e65100;
+}
+
+.status-blocked {
+  background-color: #ffebee;
+  color: #c62828;
+}
+
+.status-damaged {
+  background-color: #fce4ec;
+  color: #880e4f;
+}
+
+.status-sold {
+  background-color: #e3f2fd;
+  color: #1565c0;
+}
+
+.quick-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid #e0e0e0;
+}
+
+.history-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.history-entry {
+  display: flex;
+  gap: 16px;
+  padding: 16px;
+  background-color: #f9f9f9;
+  border-left: 3px solid #2196f3;
+  border-radius: 4px;
+}
+
+.history-date {
+  min-width: 180px;
+  font-weight: 600;
+  color: #666;
+  font-size: 14px;
+}
+
+.history-content {
+  flex: 1;
+}
+
+.history-type {
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 8px;
+  font-size: 15px;
+}
+
+.history-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 4px;
+}
+
+.history-number {
+  font-size: 12px;
+  color: #999;
+  font-style: italic;
+}
+
+.update-modal {
+  margin-top: 20px;
+}
+
+.update-modal h3 {
+  margin-top: 0;
+  margin-bottom: 20px;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+
+.form-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.error-message {
+  padding: 12px;
+  background-color: #ffebee;
+  color: #c62828;
+  border-radius: 4px;
+  margin-top: 16px;
+}
+
+.success-message {
+  padding: 12px;
+  background-color: #e8f5e9;
+  color: #2e7d32;
+  border-radius: 4px;
+  margin-top: 16px;
+}

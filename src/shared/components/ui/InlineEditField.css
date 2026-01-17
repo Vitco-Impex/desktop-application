@@ -1,0 +1,66 @@
+/**
+ * Inline Edit Field Styles
+ */
+
+.inline-edit-field {
+  margin-bottom: var(--spacing-md);
+}
+
+.inline-edit-label {
+  display: block;
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+  margin-bottom: var(--spacing-xs);
+}
+
+.inline-edit-value-container {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.inline-edit-value {
+  flex: 1;
+  padding: var(--spacing-sm) var(--spacing-md);
+  background-color: var(--color-bg-secondary);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  transition: background-color var(--transition-fast), border-color var(--transition-fast);
+  min-height: 2.5rem;
+  display: flex;
+  align-items: center;
+}
+
+.inline-edit-value:hover {
+  background-color: var(--color-bg-tertiary);
+  border-color: var(--color-border-hover);
+}
+
+.inline-edit-placeholder {
+  color: var(--color-text-tertiary);
+  font-style: italic;
+}
+
+.inline-edit-button {
+  background: none;
+  border: none;
+  font-size: var(--font-size-base);
+  cursor: pointer;
+  padding: var(--spacing-xs);
+  opacity: 0.6;
+  transition: opacity var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.inline-edit-button:hover {
+  opacity: 1;
+}
+
+.inline-edit-actions {
+  display: flex;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-sm);
+  justify-content: flex-end;
+}

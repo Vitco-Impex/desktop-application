@@ -10,6 +10,7 @@ import { socketService } from '@/services/socket.service';
 import { authStore } from '@/store/authStore';
 import { AttendanceDashboardData, AttendanceSessionStatus, UserRole } from '@/types';
 import { MarkAttendanceDialog } from './MarkAttendanceDialog';
+import { logger } from '@/shared/utils/logger';
 import './AttendanceList.css';
 
 interface AttendanceListProps {
@@ -146,7 +147,7 @@ export const AttendanceList: React.FC<AttendanceListProps> = ({ role }) => {
     // Validate employeeId before opening dialog
     const employeeId = record.employeeId;
     if (!isValidObjectId(employeeId)) {
-      console.warn('[AttendanceList] Invalid employeeId for record:', record);
+      logger.warn('[AttendanceList] Invalid employeeId for record', undefined, { record });
       // Show a less alarming error message - this is a data issue, not a critical error
       setError(`Unable to mark attendance for ${record.employeeName || 'this employee'}. Please refresh the page.`);
       // Clear error after 5 seconds

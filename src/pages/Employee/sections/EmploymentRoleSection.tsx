@@ -4,10 +4,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { EmployeeDetails, UpdateEmployeeDetailsRequest, UserRole, EmploymentType, User, Branch } from '@/types';
-import { SectionWrapper } from '@/components/EmployeeDetails/SectionWrapper';
-import { InlineEditField } from '@/components/EmployeeDetails/InlineEditField';
+import { CollapsibleSection, InlineEditField } from '@/shared/components/ui';
 import { employeeService } from '@/services/employee.service';
 import { branchService } from '@/services/branch.service';
+import { logger } from '@/shared/utils/logger';
 import './EmploymentRoleSection.css';
 
 interface EmploymentRoleSectionProps {
@@ -45,7 +45,9 @@ export const EmploymentRoleSection: React.FC<EmploymentRoleSectionProps> = ({
       const data = await branchService.getBranches({ isActive: true });
       setBranches(data);
     } catch (error) {
-      console.error('Failed to load branches:', error);
+      logger.error('[EmploymentRoleSection] Failed to load branches', error, {
+        employeeId: employee.id,
+      });
     } finally {
       setLoadingBranches(false);
     }
@@ -61,7 +63,9 @@ export const EmploymentRoleSection: React.FC<EmploymentRoleSectionProps> = ({
       );
       setManagers(managersList);
     } catch (error) {
-      console.error('Failed to load managers:', error);
+      logger.error('[EmploymentRoleSection] Failed to load managers', error, {
+        employeeId: employee.id,
+      });
     } finally {
       setLoadingManagers(false);
     }
@@ -100,7 +104,7 @@ export const EmploymentRoleSection: React.FC<EmploymentRoleSectionProps> = ({
   };
 
   return (
-    <SectionWrapper
+    <CollapsibleSection
       title="Employment & Role Details"
       icon="💼"
       isExpanded={isExpanded}
@@ -237,7 +241,7 @@ export const EmploymentRoleSection: React.FC<EmploymentRoleSectionProps> = ({
           />
         </div>
       </div>
-    </SectionWrapper>
+    </CollapsibleSection>
   );
 };
 

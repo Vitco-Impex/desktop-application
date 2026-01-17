@@ -4,8 +4,8 @@
 
 import React from 'react';
 import { EmployeeDetails, UpdateEmployeeDetailsRequest } from '@/types';
-import { SectionWrapper } from '@/components/EmployeeDetails/SectionWrapper';
-import { InlineEditField } from '@/components/EmployeeDetails/InlineEditField';
+import { CollapsibleSection } from '@/shared/components/ui';
+import { InlineEditField } from '@/shared/components/ui';
 import { Input } from '@/shared/components/ui';
 import './ProfileSummarySection.css';
 
@@ -43,7 +43,7 @@ export const ProfileSummarySection: React.FC<ProfileSummarySectionProps> = ({
   };
 
   return (
-    <SectionWrapper
+    <CollapsibleSection
       title="Profile Summary"
       icon="👤"
       isExpanded={isExpanded}
@@ -97,7 +97,7 @@ export const ProfileSummarySection: React.FC<ProfileSummarySectionProps> = ({
           </div>
         </div>
       </div>
-    </SectionWrapper>
+    </CollapsibleSection>
   );
 };
 

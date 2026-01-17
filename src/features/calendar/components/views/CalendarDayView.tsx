@@ -9,7 +9,7 @@ import {
   getEventLayoutStyle,
   LayoutedEvent,
 } from '../../utils/overlapLayout.util';
-import { Tooltip } from '@/components/tooltip/Tooltip';
+import { MouseTooltip } from '@/shared/components/ui';
 import './CalendarDayView.css';
 
 interface CalendarDayViewProps {
@@ -271,7 +271,7 @@ export const CalendarDayView: React.FC<CalendarDayViewProps> = ({
       </div>
 
       {/* Tooltip */}
-      <Tooltip
+      <MouseTooltip
         visible={tooltip.visible}
         x={tooltip.x}
         y={tooltip.y}

@@ -84,6 +84,8 @@
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0"
   },
   "dependencies": {
+    "@tanstack/react-query": "^5.90.16",
+    "@tanstack/react-virtual": "^3.13.18",
     "axios": "^1.6.2",
     "bonjour": "^3.5.0",
     "electron-updater": "^6.6.2",

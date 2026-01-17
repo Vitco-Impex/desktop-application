@@ -14,6 +14,7 @@ import {
   AttendanceRecord,
 } from '@/types';
 import { NetworkInfo } from '@/types/electron';
+import { logger } from '@/shared/utils/logger';
 import './EmployeeAttendance.css';
 
 interface NetworkValidationState {
@@ -79,7 +80,7 @@ export const EmployeeAttendance: React.FC = () => {
   }, []);
 
   const checkNetworkStatus = async () => {
-    console.log('[Frontend DEBUG] checkNetworkStatus() called');
+    logger.debug('[EmployeeAttendance] checkNetworkStatus() called');
     // Prevent duplicate simultaneous checks
     if (isCheckingWifi.current || !window.electronAPI) {
       if (!window.electronAPI) {
@@ -96,9 +97,9 @@ export const EmployeeAttendance: React.FC = () => {
 
     try {
       // Get current network info from Electron (WiFi or Ethernet)
-      console.log('[Frontend DEBUG] Calling window.electronAPI.getCurrentNetwork()...');
+      logger.debug('[EmployeeAttendance] Calling window.electronAPI.getCurrentNetwork()');
       const networkInfo: NetworkInfo = await window.electronAPI.getCurrentNetwork();
-      console.log('[Frontend DEBUG] getCurrentNetwork() returned:', JSON.stringify(networkInfo, null, 2));
+      logger.debug('[EmployeeAttendance] getCurrentNetwork() returned', { networkInfo });
 
       if (networkInfo.type === 'none') {
          
@@ -136,7 +137,7 @@ export const EmployeeAttendance: React.FC = () => {
          
         validation = await wifiService.validateNetwork(validationRequest);
       } else {
-        console.error('[Frontend DEBUG] Invalid network information structure');
+        logger.error('[EmployeeAttendance] Invalid network information structure', undefined, { networkInfo });
         setNetworkValidation({
           isValid: false,
           networkInfo: null,
@@ -147,7 +148,7 @@ export const EmployeeAttendance: React.FC = () => {
         return;
       }
 
-      console.log('[Frontend DEBUG] Validation result:', JSON.stringify(validation, null, 2));
+      logger.debug('[EmployeeAttendance] Validation result', { validation });
       setNetworkValidation({
         isValid: validation.allowed,
         networkInfo: networkInfo,
@@ -156,8 +157,7 @@ export const EmployeeAttendance: React.FC = () => {
       });
        
     } catch (err: any) {
-      console.error('[Frontend DEBUG] ✗ Error checking network status:', err);
-      console.error('[Frontend DEBUG] Error details:', {
+      logger.error('[EmployeeAttendance] Error checking network status', err, {
         message: err.message,
         response: err.response?.data,
         stack: err.stack,
@@ -170,7 +170,7 @@ export const EmployeeAttendance: React.FC = () => {
       });
     } finally {
       isCheckingWifi.current = false;
-      console.log('[Frontend DEBUG] checkNetworkStatus() completed');
+      logger.debug('[EmployeeAttendance] checkNetworkStatus() completed');
     }
   };
 

@@ -15,6 +15,7 @@ import { authStore } from '@/store/authStore';
 import { UserRole } from '@/types';
 import { undoSystem } from '../utils/undoSystem';
 import { useKeyboardShortcuts, createCalendarShortcuts } from '../hooks/useKeyboardShortcuts';
+import { logger } from '@/shared/utils/logger';
 import './CalendarLayout.css';
 
 /**
@@ -135,7 +136,7 @@ export const CalendarLayout: React.FC<CalendarLayoutProps> = ({
         return JSON.parse(savedFilters);
       }
     } catch (error) {
-      console.error('Failed to load saved filters:', error);
+      logger.error('[CalendarLayout] Failed to load saved filters', error);
     }
     return {
       assignedTo: [],

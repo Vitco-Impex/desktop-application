@@ -10,6 +10,8 @@ import { shiftService } from '@/services/shift.service';
 import { authStore } from '@/store/authStore';
 import { AttendanceSessionStatus, AttendanceSource, UserRole } from '@/types';
 import { NetworkInfo } from '@/types/electron';
+import { extractErrorMessage } from '@/utils/error';
+import { logger } from '@/shared/utils/logger';
 import './MarkAttendanceDialog.css';
 
 interface MarkAttendanceDialogProps {
@@ -128,13 +130,13 @@ export const MarkAttendanceDialog: React.FC<MarkAttendanceDialogProps> = ({
           ssid: networkInfo.wifi.ssid,
           bssid: networkInfo.wifi.bssid || undefined,
         };
-        console.log('[MarkAttendanceDialog] Validating WiFi:', validationRequest);
+        logger.debug('[MarkAttendanceDialog] Validating WiFi', { validationRequest });
         validation = await wifiService.validateNetwork(validationRequest);
       } else if (networkInfo.type === 'ethernet' && networkInfo.ethernet) {
         const validationRequest = {
           macAddress: networkInfo.ethernet.macAddress,
         };
-        console.log('[MarkAttendanceDialog] Validating Ethernet:', validationRequest);
+        logger.debug('[MarkAttendanceDialog] Validating Ethernet', { validationRequest });
         validation = await wifiService.validateNetwork(validationRequest);
       } else {
         setNetworkValidation({
@@ -146,7 +148,7 @@ export const MarkAttendanceDialog: React.FC<MarkAttendanceDialogProps> = ({
         return;
       }
 
-      console.log('[MarkAttendanceDialog] Validation result:', validation);
+      logger.debug('[MarkAttendanceDialog] Validation result', { validation });
       
       // Use validation.allowed (not isValid) - matches API response structure
       // The API returns { allowed: boolean, reason?: string }
@@ -206,7 +208,9 @@ export const MarkAttendanceDialog: React.FC<MarkAttendanceDialogProps> = ({
           }
         } catch (shiftError: any) {
           // If shift lookup fails, log but don't block (backend will validate anyway)
-          console.warn('[MarkAttendanceDialog] Failed to validate shift rule:', shiftError);
+          logger.warn('[MarkAttendanceDialog] Failed to validate shift rule', shiftError, {
+            employeeId: employeeIdString,
+          });
           // Continue - backend will validate and return appropriate error
         }
       }
@@ -228,41 +232,8 @@ export const MarkAttendanceDialog: React.FC<MarkAttendanceDialogProps> = ({
       onSuccess();
       onClose();
     } catch (err: any) {
-      // Extract user-friendly error message with comprehensive error handling
-      let errorMessage = 'Unable to mark attendance. Please try again.';
-      
-      // Check for response data first (API errors)
-      if (err.response?.data) {
-        // Try message field first
-        if (err.response.data.message) {
-          errorMessage = err.response.data.message;
-        } 
-        // Try error field
-        else if (err.response.data.error) {
-          errorMessage = err.response.data.error;
-        }
-        // Try data.message nested
-        else if (err.response.data.data?.message) {
-          errorMessage = err.response.data.data.message;
-        }
-      } 
-      // Check error message directly
-      else if (err.message) {
-        // Clean up technical error messages
-        let cleanedMessage = err.message
-          .replace(/^Request failed with status code \d+$/i, '')
-          .replace(/^Error: /i, '')
-          .replace(/^AppError: /i, '')
-          .replace(/^AxiosError: /i, '')
-          .replace(/Network Error/i, 'Unable to connect to the server. Please check your internet connection.')
-          .replace(/timeout/i, 'The request took too long. Please try again.')
-          .replace(/ECONNREFUSED/i, 'Cannot connect to the server. Please ensure the server is running.')
-          .trim();
-        
-        if (cleanedMessage) {
-          errorMessage = cleanedMessage;
-        }
-      }
+      // Use centralized error extraction utility
+      const errorMessage = extractErrorMessage(err, 'Unable to mark attendance. Please try again.');
       
       // Map common error scenarios to user-friendly messages
       const statusCode = err.response?.status;

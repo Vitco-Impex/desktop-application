@@ -4,6 +4,7 @@
 
 import { api } from './api';
 import { LoginRequest, LoginResponse, RefreshTokenResponse } from '@/types';
+import { extractApiData } from '@/utils/api';
 
 export class AuthService {
   /**
@@ -12,7 +13,7 @@ export class AuthService {
   async login(credentials: LoginRequest): Promise<LoginResponse> {
     try {
       const response = await api.post<{ success: boolean; data: LoginResponse; message: string }>('/auth/login', credentials);
-      const loginData = response.data.data;
+      const loginData = extractApiData<LoginResponse>(response);
 
       if (!loginData || !loginData.user || !loginData.accessToken) {
         throw new Error('Invalid response format from server');
@@ -31,7 +32,7 @@ export class AuthService {
     const response = await api.post<{ success: boolean; data: RefreshTokenResponse; message: string }>('/auth/refresh', {
       refreshToken,
     });
-    const tokenData = response.data.data;
+    const tokenData = extractApiData<RefreshTokenResponse>(response);
     if (!tokenData) {
       throw new Error('Invalid response format from server');
     }
@@ -43,8 +44,7 @@ export class AuthService {
    */
   async getCurrentUser() {
     const response = await api.get<{ success: boolean; data: any }>('/auth/me');
-    // Extract data from wrapped response
-    return response.data.data || response.data;
+    return extractApiData(response);
   }
 
   /**

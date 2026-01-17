@@ -4,7 +4,7 @@
 
 import React, { useState } from 'react';
 import { CalendarEvent } from '@/types/calendar';
-import { Tooltip } from '@/components/tooltip/Tooltip';
+import { MouseTooltip } from '@/shared/components/ui';
 import './CalendarMonthView.css';
 
 interface CalendarMonthViewProps {
@@ -203,7 +203,7 @@ export const CalendarMonthView: React.FC<CalendarMonthViewProps> = ({
       </div>
 
       {/* Tooltip */}
-      <Tooltip
+      <MouseTooltip
         visible={tooltip.visible}
         x={tooltip.x}
         y={tooltip.y}

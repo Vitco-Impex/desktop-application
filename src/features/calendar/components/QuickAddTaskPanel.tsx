@@ -8,6 +8,7 @@ import { CalendarEvent, CreateCalendarEventRequest, CalendarEventType, CalendarE
 import { calendarService } from '@/services/calendar.service';
 import { authStore } from '@/store/authStore';
 import { UserRole } from '@/types';
+import { logger } from '@/shared/utils/logger';
 import './QuickAddTaskPanel.css';
 
 interface QuickAddTaskPanelProps {
@@ -71,7 +72,7 @@ export const QuickAddTaskPanel: React.FC<QuickAddTaskPanelProps> = ({
         setFormData((prev) => ({ ...prev, employeeId: user.id }));
       }
     } catch (err) {
-      console.error('Failed to load assignable employees:', err);
+      logger.error('[QuickAddTaskPanel] Failed to load assignable employees', err);
       // Fallback: if user is employee, just use themselves
       if (user?.role === UserRole.EMPLOYEE && user.id) {
         setAssignableEmployees([{

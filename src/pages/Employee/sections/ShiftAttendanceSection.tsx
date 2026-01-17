@@ -5,9 +5,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { EmployeeDetails, UpdateEmployeeDetailsRequest, AttendanceMode } from '@/types';
-import { SectionWrapper } from '@/components/EmployeeDetails/SectionWrapper';
+import { CollapsibleSection } from '@/shared/components/ui';
 import { shiftService } from '@/services/shift.service';
 import { Shift, ShiftAssignment, CreateShiftAssignmentRequest } from '@/types/shift';
+import { logger } from '@/shared/utils/logger';
 import './ShiftAttendanceSection.css';
 
 interface ShiftAttendanceSectionProps {
@@ -47,7 +48,9 @@ export const ShiftAttendanceSection: React.FC<ShiftAttendanceSectionProps> = ({
       const response = await shiftService.listShifts({ status: 'active' });
       setShifts(response.shifts || []);
     } catch (error) {
-      console.error('Failed to load shifts:', error);
+      logger.error('[ShiftAttendanceSection] Failed to load shifts', error, {
+        employeeId: employee.id,
+      });
     } finally {
       setLoadingShifts(false);
     }
@@ -59,7 +62,9 @@ export const ShiftAttendanceSection: React.FC<ShiftAttendanceSectionProps> = ({
       const assignment = await shiftService.getEmployeeShift(employee.id);
       setCurrentAssignment(assignment);
     } catch (error) {
-      console.error('Failed to load current assignment:', error);
+      logger.error('[ShiftAttendanceSection] Failed to load current assignment', error, {
+        employeeId: employee.id,
+      });
       setCurrentAssignment(null);
     } finally {
       setLoadingAssignment(false);
@@ -119,8 +124,12 @@ export const ShiftAttendanceSection: React.FC<ShiftAttendanceSectionProps> = ({
       }
       onUnsavedChange(false);
     } catch (err: any) {
-      setError(err.message || 'Failed to update shift assignment');
-      console.error('Failed to update shift assignment:', err);
+      const errorMessage = err.message || 'Failed to update shift assignment';
+      logger.error('[ShiftAttendanceSection] Failed to update shift assignment', err, {
+        employeeId: employee.id,
+        shiftId,
+      });
+      setError(errorMessage);
     }
   };
 
@@ -140,8 +149,13 @@ export const ShiftAttendanceSection: React.FC<ShiftAttendanceSectionProps> = ({
       await onUpdate(update);
       onUnsavedChange(false);
     } catch (err: any) {
-      setError(err.message || 'Failed to update assignment type');
-      console.error('Failed to update assignment type:', err);
+      const errorMessage = err.message || 'Failed to update assignment type';
+      logger.error('[ShiftAttendanceSection] Failed to update assignment type', err, {
+        employeeId: employee.id,
+        assignmentId: currentAssignment?.id,
+        type,
+      });
+      setError(errorMessage);
     }
   };
 
@@ -165,8 +179,14 @@ export const ShiftAttendanceSection: React.FC<ShiftAttendanceSectionProps> = ({
       await onUpdate(update);
       onUnsavedChange(false);
     } catch (err: any) {
-      setError(err.message || 'Failed to update date');
-      console.error('Failed to update date:', err);
+      const errorMessage = err.message || 'Failed to update date';
+      logger.error('[ShiftAttendanceSection] Failed to update date', err, {
+        employeeId: employee.id,
+        assignmentId: currentAssignment?.id,
+        field,
+        value,
+      });
+      setError(errorMessage);
     }
   };
 
@@ -195,7 +215,7 @@ export const ShiftAttendanceSection: React.FC<ShiftAttendanceSectionProps> = ({
   const displayEndDate = currentAssignment?.endDate || employee.shiftEffectiveTo;
 
   return (
-    <SectionWrapper
+    <CollapsibleSection
       title="Shift & Attendance Configuration"
       icon="🕐"
       isExpanded={isExpanded}
@@ -394,7 +414,7 @@ export const ShiftAttendanceSection: React.FC<ShiftAttendanceSectionProps> = ({
           </div>
         </div>
       </div>
-    </SectionWrapper>
+    </CollapsibleSection>
   );
 };
 

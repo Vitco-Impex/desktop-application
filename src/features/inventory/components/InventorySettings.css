@@ -1,0 +1,74 @@
+/**
+ * Inventory Settings Styles
+ */
+
+.inventory-settings {
+  padding: 20px;
+}
+
+.settings-header {
+  margin-bottom: 24px;
+}
+
+.settings-header h2 {
+  margin: 0 0 8px 0;
+  font-size: 24px;
+  font-weight: 600;
+  color: #333;
+}
+
+.settings-subtitle {
+  margin: 0;
+  color: #666;
+  font-size: 14px;
+}
+
+.settings-sub-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 2px solid #e0e0e0;
+  margin-bottom: 24px;
+  padding-left: 8px;
+}
+
+.settings-sub-tab {
+  padding: 10px 20px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  color: #666;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  transition: all 0.2s;
+}
+
+.settings-sub-tab:hover {
+  color: #333;
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.settings-sub-tab.active {
+  color: #2563eb;
+  border-bottom-color: #2563eb;
+}
+
+.settings-content {
+  min-height: 400px;
+}
+
+.settings-placeholder {
+  padding: 40px;
+  text-align: center;
+  color: #666;
+}
+
+.settings-placeholder h3 {
+  margin: 0 0 8px 0;
+  color: #333;
+}
+
+.settings-placeholder p {
+  margin: 4px 0;
+}

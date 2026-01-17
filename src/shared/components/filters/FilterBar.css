@@ -1,0 +1,13 @@
+/**
+ * FilterBar Styles
+ */
+
+.filter-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-lg);
+  background-color: var(--color-bg-primary);
+  border-bottom: var(--border-width) solid var(--color-border);
+  flex-wrap: wrap;
+}

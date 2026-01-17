@@ -7,6 +7,8 @@
 import React, { lazy, Suspense } from 'react';
 import { WorkReport } from '@/types';
 import { reportService } from '@/services/report.service';
+import { formatDate } from '@/utils/date';
+import { formatFileSize } from '@/utils/string';
 import './ReportDetail.css';
 
 // Lazy load react-markdown - only loads when needed (reduces initial bundle by ~100KB)
@@ -23,22 +25,6 @@ export const ReportDetail: React.FC<ReportDetailProps> = ({
   onDelete,
   onBack,
 }) => {
-  const formatDate = (dateString: string): string => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
-
-  const formatFileSize = (bytes: number): string => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  };
 
   const getFileIcon = (mimeType: string): string => {
     if (mimeType.startsWith('image/')) return '🖼️';
@@ -53,7 +39,7 @@ export const ReportDetail: React.FC<ReportDetailProps> = ({
     try {
       await reportService.downloadAttachment(url, fileName);
     } catch (error: any) {
-      alert('Failed to download file: ' + (error.message || 'Unknown error'));
+      alert('Failed to download file: ' + extractErrorMessage(error, 'Unknown error'));
     }
   };
 
@@ -79,7 +65,7 @@ export const ReportDetail: React.FC<ReportDetailProps> = ({
       <div className="detail-content">
         <div className="detail-title-section">
           <h1 className="detail-title">{report.title}</h1>
-          <span className="detail-date">{formatDate(report.createdAt)}</span>
+          <span className="detail-date">{formatDate(report.createdAt, { includeTime: true, format: 'long' })}</span>
         </div>
 
         <div className="detail-body">

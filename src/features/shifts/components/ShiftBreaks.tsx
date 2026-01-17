@@ -7,6 +7,12 @@ import React, { useState, useEffect } from 'react';
 import { shiftService } from '@/services/shift.service';
 import { Shift, ShiftBreak } from '@/types/shift';
 import { Button } from '@/shared/components/ui/Button';
+import { Input } from '@/shared/components/ui/Input';
+import { Select } from '@/shared/components/ui/Select';
+import { Checkbox } from '@/shared/components/ui/Checkbox';
+import { LoadingState, ErrorState } from '@/shared/components/data-display';
+import { formatTime } from '@/utils/date';
+import { extractErrorMessage } from '@/utils/error';
 import './ShiftBreaks.css';
 
 interface ShiftBreaksProps {
@@ -127,7 +133,7 @@ export const ShiftBreaks: React.FC<ShiftBreaksProps> = ({ shiftId }) => {
       setSuccess('Break disabled successfully');
       await loadShift();
     } catch (err: any) {
-      setError(err.response?.data?.error || err.message || 'Failed to disable break');
+      setError(extractErrorMessage(err, 'Failed to disable break'));
     }
   };
 
@@ -181,7 +187,7 @@ export const ShiftBreaks: React.FC<ShiftBreaksProps> = ({ shiftId }) => {
       setEditingBreak(null);
       await loadShift();
     } catch (err: any) {
-      setError(err.response?.data?.error || err.message || 'Failed to save break');
+      setError(extractErrorMessage(err, 'Failed to save break'));
     } finally {
       setSaving(false);
     }
@@ -192,8 +198,9 @@ export const ShiftBreaks: React.FC<ShiftBreaksProps> = ({ shiftId }) => {
     setEditingBreak(null);
   };
 
-  const formatTime = (time?: string): string => {
-    return time || '--';
+  const formatTimeDisplay = (time?: string): string => {
+    if (!time) return '--';
+    return formatTime(time);
   };
 
   const formatDuration = (minutes: number): string => {
@@ -202,9 +209,9 @@ export const ShiftBreaks: React.FC<ShiftBreaksProps> = ({ shiftId }) => {
     return m > 0 ? `${h}h ${m}m` : `${h}h`;
   };
 
-  if (loading) return <div className="shift-breaks-loading">Loading breaks...</div>;
-  if (error && !shift) return <div className="shift-breaks-error">{error}</div>;
-  if (!shift) return <div className="shift-breaks-error">Shift not found</div>;
+  if (loading) return <LoadingState message="Loading breaks..." />;
+  if (error && !shift) return <ErrorState title="Error" message={error} />;
+  if (!shift) return <ErrorState title="Shift not found" message="The shift you're looking for doesn't exist." />;
 
   const activeBreaks = shift.breakRules.filter(b => b.status === 'active');
 
@@ -221,8 +228,8 @@ export const ShiftBreaks: React.FC<ShiftBreaksProps> = ({ shiftId }) => {
           {success && <div className="shift-breaks-success-message">{success}</div>}
 
           <div className="shift-breaks-form-field">
-            <label>Break Name *</label>
-            <input
+            <Input
+              label="Break Name *"
               type="text"
               value={breakFormData.name}
               onChange={(e) => setBreakFormData({ ...breakFormData, name: e.target.value })}
@@ -232,15 +239,16 @@ export const ShiftBreaks: React.FC<ShiftBreaksProps> = ({ shiftId }) => {
           </div>
 
           <div className="shift-breaks-form-field">
-            <label>Break Type *</label>
-            <select
+            <Select
+              label="Break Type *"
               value={breakFormData.type}
               onChange={(e) => setBreakFormData({ ...breakFormData, type: e.target.value as 'fixed' | 'flexible' })}
               required
-            >
-              <option value="fixed">Fixed (Specific start/end time)</option>
-              <option value="flexible">Flexible (Allowed time window)</option>
-            </select>
+              options={[
+                { value: 'fixed', label: 'Fixed (Specific start/end time)' },
+                { value: 'flexible', label: 'Flexible (Allowed time window)' },
+              ]}
+            />
           </div>
 
           {breakFormData.type === 'fixed' ? (
@@ -279,8 +287,8 @@ export const ShiftBreaks: React.FC<ShiftBreaksProps> = ({ shiftId }) => {
           ) : (
             <>
               <div className="shift-breaks-form-field">
-                <label>Allowed Window Start *</label>
-                <input
+                <Input
+                  label="Allowed Window Start *"
                   type="time"
                   value={breakFormData.allowedWindowStart || ''}
                   onChange={(e) => setBreakFormData({ ...breakFormData, allowedWindowStart: e.target.value })}
@@ -289,8 +297,8 @@ export const ShiftBreaks: React.FC<ShiftBreaksProps> = ({ shiftId }) => {
                 <small>Earliest time break can start</small>
               </div>
               <div className="shift-breaks-form-field">
-                <label>Allowed Window End *</label>
-                <input
+                <Input
+                  label="Allowed Window End *"
                   type="time"
                   value={breakFormData.allowedWindowEnd || ''}
                   onChange={(e) => setBreakFormData({ ...breakFormData, allowedWindowEnd: e.target.value })}
@@ -299,10 +307,10 @@ export const ShiftBreaks: React.FC<ShiftBreaksProps> = ({ shiftId }) => {
                 <small>Latest time break can end</small>
               </div>
               <div className="shift-breaks-form-field">
-                <label>Maximum Duration (minutes) *</label>
-                <input
+                <Input
+                  label="Maximum Duration (minutes) *"
                   type="number"
-                  value={breakFormData.maxDuration}
+                  value={breakFormData.maxDuration.toString()}
                   onChange={(e) => setBreakFormData({ ...breakFormData, maxDuration: parseInt(e.target.value) || 0 })}
                   min="1"
                   required
@@ -310,24 +318,21 @@ export const ShiftBreaks: React.FC<ShiftBreaksProps> = ({ shiftId }) => {
                 <small>Maximum allowed break duration</small>
               </div>
               <div className="shift-breaks-form-field">
-                <label className="shift-breaks-checkbox-label">
-                  <input
-                    type="checkbox"
-                    checked={breakFormData.autoEnd}
-                    onChange={(e) => setBreakFormData({ ...breakFormData, autoEnd: e.target.checked })}
-                  />
-                  <span>Auto-end break after max duration</span>
-                </label>
+                <Checkbox
+                  label="Auto-end break after max duration"
+                  checked={breakFormData.autoEnd}
+                  onChange={(e) => setBreakFormData({ ...breakFormData, autoEnd: e.target.checked })}
+                />
               </div>
             </>
           )}
 
           {breakFormData.type === 'fixed' && (
             <div className="shift-breaks-form-field">
-              <label>Duration (minutes) *</label>
-              <input
+              <Input
+                label="Duration (minutes) *"
                 type="number"
-                value={breakFormData.duration}
+                value={breakFormData.duration.toString()}
                 onChange={(e) => setBreakFormData({ ...breakFormData, duration: parseInt(e.target.value) || 0 })}
                 min="1"
                 required
@@ -337,10 +342,10 @@ export const ShiftBreaks: React.FC<ShiftBreaksProps> = ({ shiftId }) => {
           )}
 
           <div className="shift-breaks-form-field">
-            <label>Minimum Duration (minutes)</label>
-            <input
+            <Input
+              label="Minimum Duration (minutes)"
               type="number"
-              value={breakFormData.minDuration || 0}
+              value={(breakFormData.minDuration || 0).toString()}
               onChange={(e) => setBreakFormData({ ...breakFormData, minDuration: parseInt(e.target.value) || 0 })}
               min="0"
             />
@@ -348,10 +353,10 @@ export const ShiftBreaks: React.FC<ShiftBreaksProps> = ({ shiftId }) => {
           </div>
 
           <div className="shift-breaks-form-field">
-            <label>Daily Limit</label>
-            <input
+            <Input
+              label="Daily Limit"
               type="number"
-              value={breakFormData.dailyLimit || ''}
+              value={breakFormData.dailyLimit?.toString() || ''}
               onChange={(e) => setBreakFormData({ ...breakFormData, dailyLimit: e.target.value ? parseInt(e.target.value) : undefined })}
               min="1"
             />
@@ -359,25 +364,19 @@ export const ShiftBreaks: React.FC<ShiftBreaksProps> = ({ shiftId }) => {
           </div>
 
           <div className="shift-breaks-form-field">
-            <label className="shift-breaks-checkbox-label">
-              <input
-                type="checkbox"
-                checked={breakFormData.isPaid}
-                onChange={(e) => setBreakFormData({ ...breakFormData, isPaid: e.target.checked })}
-              />
-              <span>Paid break (counts toward working hours)</span>
-            </label>
+            <Checkbox
+              label="Paid break (counts toward working hours)"
+              checked={breakFormData.isPaid}
+              onChange={(e) => setBreakFormData({ ...breakFormData, isPaid: e.target.checked })}
+            />
           </div>
 
           <div className="shift-breaks-form-field">
-            <label className="shift-breaks-checkbox-label">
-              <input
-                type="checkbox"
-                checked={breakFormData.autoDeduct}
-                onChange={(e) => setBreakFormData({ ...breakFormData, autoDeduct: e.target.checked })}
-              />
-              <span>Auto-deduct from working hours (if unpaid)</span>
-            </label>
+            <Checkbox
+              label="Auto-deduct from working hours (if unpaid)"
+              checked={breakFormData.autoDeduct}
+              onChange={(e) => setBreakFormData({ ...breakFormData, autoDeduct: e.target.checked })}
+            />
           </div>
 
           <div className="shift-breaks-form-actions">
@@ -441,9 +440,9 @@ export const ShiftBreaks: React.FC<ShiftBreaksProps> = ({ shiftId }) => {
                       </td>
                       <td className="break-timing">
                         {breakRule.type === 'fixed' ? (
-                          <span>{formatTime(breakRule.startTime)} - {formatTime(breakRule.endTime)}</span>
+                          <span>{formatTimeDisplay(breakRule.startTime)} - {formatTimeDisplay(breakRule.endTime)}</span>
                         ) : (
-                          <span>{formatTime(breakRule.allowedWindowStart)} - {formatTime(breakRule.allowedWindowEnd)}</span>
+                          <span>{formatTimeDisplay(breakRule.allowedWindowStart)} - {formatTimeDisplay(breakRule.allowedWindowEnd)}</span>
                         )}
                       </td>
                       <td className="break-duration">{formatDuration(breakRule.duration)}</td>

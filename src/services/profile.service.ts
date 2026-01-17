@@ -4,6 +4,7 @@
 
 import { api } from './api';
 import { User } from '@/types';
+import { extractApiData } from '@/utils/api';
 
 export interface UpdateProfileRequest {
   name?: string;
@@ -33,7 +34,7 @@ class ProfileService {
    */
   async getProfile(): Promise<User> {
     const response = await api.get('/profile');
-    return response.data.data;
+    return extractApiData(response);
   }
 
   /**
@@ -41,7 +42,7 @@ class ProfileService {
    */
   async updateProfile(request: UpdateProfileRequest): Promise<User> {
     const response = await api.put('/profile', request);
-    return response.data.data;
+    return extractApiData(response);
   }
 
   /**

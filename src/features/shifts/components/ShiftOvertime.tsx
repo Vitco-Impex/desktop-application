@@ -8,7 +8,11 @@ import { shiftService } from '@/services/shift.service';
 import { Shift, ShiftOvertimeRules } from '@/types/shift';
 import { Button } from '@/shared/components/ui/Button';
 import { Input } from '@/shared/components/ui/Input';
+import { Select } from '@/shared/components/ui/Select';
+import { Checkbox } from '@/shared/components/ui/Checkbox';
+import { LoadingState, ErrorState } from '@/shared/components/data-display';
 import { Card } from '@/shared/components/ui/Card';
+import { extractErrorMessage } from '@/utils/error';
 import './ShiftOvertime.css';
 
 interface ShiftOvertimeProps {
@@ -62,7 +66,7 @@ export const ShiftOvertime: React.FC<ShiftOvertimeProps> = ({ shiftId }) => {
         setOvertimeRules(loadedShift.overtimeRules);
       }
     } catch (err: any) {
-      setError(err.message || 'Failed to load shift');
+      setError(extractErrorMessage(err, 'Failed to load shift'));
     } finally {
       setLoading(false);
     }
@@ -90,7 +94,7 @@ export const ShiftOvertime: React.FC<ShiftOvertimeProps> = ({ shiftId }) => {
       setSuccess('Overtime rules saved successfully');
       await loadShift();
     } catch (err: any) {
-      setError(err.message || 'Failed to save overtime rules');
+      setError(extractErrorMessage(err, 'Failed to save overtime rules'));
     } finally {
       setSaving(false);
     }
@@ -99,7 +103,7 @@ export const ShiftOvertime: React.FC<ShiftOvertimeProps> = ({ shiftId }) => {
   if (loading) {
     return (
       <div className="shift-overtime">
-        <div className="shift-overtime-loading">Loading shift...</div>
+        <LoadingState message="Loading shift..." />
       </div>
     );
   }
@@ -107,7 +111,7 @@ export const ShiftOvertime: React.FC<ShiftOvertimeProps> = ({ shiftId }) => {
   if (!shift) {
     return (
       <div className="shift-overtime">
-        <div className="shift-overtime-error">Shift not found</div>
+        <ErrorState title="Shift not found" message="The shift you're looking for doesn't exist." />
       </div>
     );
   }
@@ -348,16 +352,15 @@ export const ShiftOvertime: React.FC<ShiftOvertimeProps> = ({ shiftId }) => {
               </div>
               <div className="shift-overtime-section-content">
                 <div className="shift-overtime-field">
-                  <label>
-                    Default classification
-                    <select
-                      value={overtimeRules.defaultClassification}
-                      onChange={(e) => handleChange('defaultClassification', e.target.value as 'paid' | 'comp_off')}
-                    >
-                      <option value="paid">Paid</option>
-                      <option value="comp_off">Comp-off</option>
-                    </select>
-                  </label>
+                  <Select
+                    label="Default classification"
+                    value={overtimeRules.defaultClassification}
+                    onChange={(e) => handleChange('defaultClassification', e.target.value as 'paid' | 'comp_off')}
+                    options={[
+                      { value: 'paid', label: 'Paid' },
+                      { value: 'comp_off', label: 'Comp-off' },
+                    ]}
+                  />
                 </div>
                 <div className="shift-overtime-field">
                   <label>
@@ -436,29 +439,27 @@ export const ShiftOvertime: React.FC<ShiftOvertimeProps> = ({ shiftId }) => {
                 {overtimeRules.roundingEnabled && (
                   <>
                     <div className="shift-overtime-field">
-                      <label>
-                        Rounding unit (minutes)
-                        <select
-                          value={overtimeRules.roundingUnit}
-                          onChange={(e) => handleChange('roundingUnit', parseInt(e.target.value) as 15 | 30 | 60)}
-                        >
-                          <option value="15">15 minutes</option>
-                          <option value="30">30 minutes</option>
-                          <option value="60">60 minutes</option>
-                        </select>
-                      </label>
+                      <Select
+                        label="Rounding unit (minutes)"
+                        value={String(overtimeRules.roundingUnit)}
+                        onChange={(e) => handleChange('roundingUnit', parseInt(e.target.value) as 15 | 30 | 60)}
+                        options={[
+                          { value: '15', label: '15 minutes' },
+                          { value: '30', label: '30 minutes' },
+                          { value: '60', label: '60 minutes' },
+                        ]}
+                      />
                     </div>
                     <div className="shift-overtime-field">
-                      <label>
-                        Rounding method
-                        <select
-                          value={overtimeRules.roundingMethod}
-                          onChange={(e) => handleChange('roundingMethod', e.target.value as 'nearest' | 'floor')}
-                        >
-                          <option value="nearest">Nearest</option>
-                          <option value="floor">Floor (never round up)</option>
-                        </select>
-                      </label>
+                      <Select
+                        label="Rounding method"
+                        value={overtimeRules.roundingMethod}
+                        onChange={(e) => handleChange('roundingMethod', e.target.value as 'nearest' | 'floor')}
+                        options={[
+                          { value: 'nearest', label: 'Nearest' },
+                          { value: 'floor', label: 'Floor (never round up)' },
+                        ]}
+                      />
                     </div>
                   </>
                 )}
