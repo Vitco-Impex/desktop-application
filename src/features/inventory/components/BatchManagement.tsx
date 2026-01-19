@@ -45,19 +45,7 @@ export const BatchManagement: React.FC = () => {
     manufacturingDate: new Date().toISOString().split('T')[0],
   });
 
-  useEffect(() => {
-    loadItems();
-    loadLocations();
-  }, []);
-
-  useEffect(() => {
-    if (viewMode === 'list' && selectedItemId) {
-      loadBatches();
-    } else if (viewMode === 'near-expiry') {
-      loadNearExpiryBatches();
-    }
-  }, [viewMode, selectedItemId]);
-
+  // Load functions - defined before useEffects to avoid TDZ errors
   const loadItems = async () => {
     try {
       const data = await inventoryService.getAllItems({ isActive: true });
@@ -106,6 +94,19 @@ export const BatchManagement: React.FC = () => {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    loadItems();
+    loadLocations();
+  }, []);
+
+  useEffect(() => {
+    if (viewMode === 'list' && selectedItemId) {
+      loadBatches();
+    } else if (viewMode === 'near-expiry') {
+      loadNearExpiryBatches();
+    }
+  }, [viewMode, selectedItemId]);
 
   const handleCreate = async () => {
     setError(null);

@@ -4,7 +4,7 @@ export const config = {
     timeout: 30000,
   },
   app: {
-    name: 'Company OS Desktop',
+    name: 'Busiman Desktop',
     version: '1.0.0',
   },
   updates: {

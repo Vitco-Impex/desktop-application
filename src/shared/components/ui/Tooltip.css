@@ -47,3 +47,8 @@
   transform: translateY(-50%);
   margin-left: var(--spacing-xs);
 }
+
+/* Portal-mounted tooltip: positioning via inline styles, only box appearance here */
+.tooltip--portal {
+  margin: 0;
+}

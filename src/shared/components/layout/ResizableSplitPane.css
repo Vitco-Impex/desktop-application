@@ -1,0 +1,62 @@
+.resize-split-container {
+  display: flex;
+  flex-direction: row;
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  align-items: stretch;
+}
+
+.resize-pane-left,
+.resize-pane-right {
+  overflow: hidden;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.resize-handle {
+  flex-shrink: 0;
+  cursor: col-resize;
+  background: transparent;
+  transition: background 0.15s;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
+
+.resize-handle:hover,
+.resize-handle.resizing {
+  background: #e2e8f0;
+}
+
+.resize-handle:focus {
+  outline: 2px solid #2563eb;
+  outline-offset: -2px;
+}
+
+/* Optional: thin vertical line indicator on hover */
+.resize-handle:hover::before,
+.resize-handle.resizing::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: #94a3b8;
+  transform: translateX(-50%);
+}
+
+/* Prevent text selection during drag */
+body.resizing {
+  cursor: col-resize !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+}

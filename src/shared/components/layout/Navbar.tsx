@@ -155,13 +155,13 @@ export const Navbar: React.FC = () => {
             {company?.logoUrl ? (
               <img
                 src={company.logoUrl}
-                alt={`${company.displayName || 'Company OS'} Logo`}
+                alt={`${company.displayName || 'Busiman'} Logo`}
                 className="navbar-logo-img"
               />
             ) : (
               <img
                 src="./assets/logo.png"
-                alt="Company OS Logo"
+                alt="Busiman Logo"
                 className="navbar-logo-img"
               />
             )}
@@ -200,7 +200,7 @@ export const Navbar: React.FC = () => {
             >
               <div className="navbar-user-info">
                 <span className="navbar-user-name">
-                  {company?.displayName || 'Company OS'}
+                  {company?.displayName || 'Busiman'}
                 </span>
                 <span className="navbar-user-role">{user?.role}</span>
               </div>

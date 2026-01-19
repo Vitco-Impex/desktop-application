@@ -1,14 +1,26 @@
 /**
  * Item Master Component - Manage inventory items
+ * 
+ * UI GOVERNANCE RULES:
+ * - Maximum 6 sub-tabs (FIXED - no additions allowed)
+ * - Maximum 6 wizard steps
+ * - Maximum 5 collapsible sections in Overview
+ * - Maximum 3 sub-views per tab
+ * - No operational data (stock levels, pricing, suppliers)
+ * 
+ * Before adding features, review: ITEM_MASTER_UI_GOVERNANCE.md
+ * Developer checklist: ITEM_MASTER_DEVELOPER_CHECKLIST.md
+ * Code review guide: CODE_REVIEW_GUIDELINES_ITEM_MASTER.md
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   inventoryService,
   InventoryItem,
   CreateInventoryItemRequest,
   UpdateInventoryItemRequest,
+  CreateVariantRequest,
   IndustryType,
 } from '@/services/inventory.service';
 import { Button, Input, Card, Select, ImageUpload, ImageData } from '@/shared/components/ui';
@@ -16,7 +28,17 @@ import { LoadingState, EmptyState, ErrorState } from '@/shared/components/data-d
 import { extractErrorMessage } from '@/utils/error';
 import { logger } from '@/shared/utils/logger';
 import { ConfirmDialog } from '@/shared/components/modals';
+import { ResizableSplitPane } from '@/shared/components/layout';
 import { VariantManagement } from './VariantManagement';
+import {
+  ItemSubTab,
+  TrackingSubView,
+  MAX_WIZARD_STEPS,
+  MAX_COLLAPSIBLE_SECTIONS,
+  validateWizardSteps,
+  validateCollapsibleSections,
+  validateSubViews,
+} from '../constants/ui-governance.constants';
 import './ItemMaster.css';
 
 type ViewMode = 'list' | 'details' | 'add' | 'edit';
@@ -31,6 +53,7 @@ export const ItemMaster: React.FC = () => {
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
+  const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
   const [categories, setCategories] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState<string>('');
@@ -39,20 +62,7 @@ export const ItemMaster: React.FC = () => {
   const [filterExpiryRisk, setFilterExpiryRisk] = useState<string>('');
   const [showFilters, setShowFilters] = useState(false);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
-  const [addingVariantForItem, setAddingVariantForItem] = useState<string | null>(null);
-  const [variantFormData, setVariantFormData] = useState<{
-    code: string;
-    name: string;
-    barcode: string;
-    isDefault: boolean;
-    images: ImageData[];
-  }>({
-    code: '',
-    name: '',
-    barcode: '',
-    isDefault: false,
-    images: [],
-  });
+  // Variant management removed from list view - use Product Details → Variants tab instead
   const [sortColumn, setSortColumn] = useState<string | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [currentPage, setCurrentPage] = useState(1);
@@ -61,7 +71,7 @@ export const ItemMaster: React.FC = () => {
   const [bulkActionLoading, setBulkActionLoading] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<string | null>(null);
-  const [itemSubTab, setItemSubTab] = useState<'overview' | 'stock' | 'tracking' | 'locations' | 'history' | 'variants'>('overview');
+  const [itemSubTab, setItemSubTab] = useState<ItemSubTab>('overview');
   const [trackingSubView, setTrackingSubView] = useState<'batches' | 'serials' | 'expiry'>('batches');
   
   // Auto-set tracking sub-view when item changes
@@ -179,23 +189,16 @@ export const ItemMaster: React.FC = () => {
       requiresBatchTracking: false,
       requiresSerialTracking: false,
       hasExpiryDate: false,
+      isHighValue: false,
       industryType: IndustryType.WAREHOUSE,
     },
     images: [],
-    costPrice: undefined,
-    sellingPrice: undefined,
-    margin: undefined,
-    supplierId: undefined,
-    supplierName: '',
-    supplierCode: '',
     dimensions: undefined,
     weight: undefined,
     tags: [],
   });
 
-  // Variants in form state
-  const [formVariants, setFormVariants] = useState<Array<CreateVariantRequest & { tempId: string }>>([]);
-  const [editingVariantIndex, setEditingVariantIndex] = useState<number | null>(null);
+  // Variants removed from wizard - variants should be created in Product Details after item creation
   
   // Wizard step state
   const [currentStep, setCurrentStep] = useState(1);
@@ -204,17 +207,31 @@ export const ItemMaster: React.FC = () => {
   // Ref to track if we've processed the edit param
   const editParamProcessed = useRef(false);
   
+  // Refs for form fields for keyboard navigation
+  const formFieldRefs = useRef<Record<string, HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null>>({});
+  const stepIndicatorRefs = useRef<Record<number, HTMLDivElement | null>>({});
+  
+  // Ref to prevent duplicate loads for same itemId/subTab combination
+  const lastLoadedRef = useRef<{ itemId: string | null; subTab: ItemSubTab | null }>({ itemId: null, subTab: null });
+  const loadingStockRef = useRef(false);
+  const loadingItemsRef = useRef(false);
+  const lastItemsLoadRef = useRef<string>('');
+  
   // Wizard steps configuration
+  // UI Governance: Maximum 6 steps enforced - add new fields to existing steps or use modals
+  // NOTE: Variants removed from wizard - variants should be created in Product Details after item creation
   const wizardSteps = [
     { id: 1, label: 'Basic Info', key: 'basic' },
     { id: 2, label: 'Images', key: 'images' },
-    { id: 3, label: 'Pricing', key: 'pricing' },
-    { id: 4, label: 'Dimensions', key: 'dimensions' },
-    { id: 5, label: 'Industry', key: 'industry' },
-    { id: 6, label: 'Stock', key: 'stock' },
-    { id: 7, label: 'Variants', key: 'variants' },
-    { id: 8, label: 'Tags', key: 'tags' },
+    { id: 3, label: 'Dimensions', key: 'dimensions' },
+    { id: 4, label: 'Industry', key: 'industry' },
+    { id: 5, label: 'Tags', key: 'tags' },
   ];
+  
+  // UI Governance: Runtime validation of wizard steps limit
+  if (process.env.NODE_ENV === 'development') {
+    validateWizardSteps(wizardSteps.length);
+  }
 
   // Initial load on mount
   useEffect(() => {
@@ -249,12 +266,132 @@ export const ItemMaster: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams.toString(), items.length]); // Only check when searchParams or items length changes
 
-  // Keyboard shortcuts
+  // Handle itemId, variantId, itemSubTab, and locationId from URL for deep linking
+  const locationIdFromUrl = searchParams.get('locationId');
+  
+  useEffect(() => {
+    const itemId = searchParams.get('itemId');
+    const variantId = searchParams.get('variantId');
+    const subTab = searchParams.get('itemSubTab') as ItemSubTab | null;
+    const locationId = searchParams.get('locationId');
+    
+    if (itemId) {
+      // Always set view mode to details and selectedItemId when itemId is in URL
+      // This ensures deep linking works correctly even if items haven't loaded yet
+      setSelectedItemId(itemId);
+      setViewMode('details');
+      
+      // Set sub-tab and variant ID
+      if (subTab && ['overview', 'edit', 'variants', 'stock', 'tracking', 'history'].includes(subTab)) {
+        setItemSubTab(subTab);
+      } else if (variantId) {
+        setItemSubTab('variants');
+        setSelectedVariantId(variantId);
+      } else {
+        setItemSubTab('overview');
+      }
+      
+      if (variantId) {
+        setSelectedVariantId(variantId);
+      }
+      
+      // Store locationId for Stock tab highlighting (we'll use it in renderStockView)
+      if (locationId && subTab === 'stock') {
+        // LocationId will be used in renderStockView to highlight the row
+      }
+    } else {
+      // If no itemId in URL, clear selection and return to list view
+      setSelectedItemId(null);
+      setViewMode('list');
+    }
+  }, [searchParams]);
+
+  // Keyboard shortcuts and navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Don't trigger shortcuts when typing in inputs/textarea
       const target = e.target as HTMLElement;
-      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+      const isFormMode = viewMode === 'add' || viewMode === 'edit';
+      const isInputField = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT';
+      const isContentEditable = target.isContentEditable;
+      
+      // Handle form-specific keyboard navigation
+      if (isFormMode) {
+        // Enter key handling in form fields
+        if (e.key === 'Enter' && !e.shiftKey && isInputField && target.tagName !== 'TEXTAREA') {
+          // Don't prevent default for textarea (allows new lines)
+          if (target.tagName === 'TEXTAREA') {
+            return;
+          }
+          
+          // If Enter pressed in input, move to next field or submit if last step
+          e.preventDefault();
+          const currentFieldId = target.getAttribute('data-field-id');
+          if (currentFieldId) {
+            const fieldIds = Object.keys(formFieldRefs.current).sort();
+            const currentIndex = fieldIds.indexOf(currentFieldId);
+            if (currentIndex < fieldIds.length - 1) {
+              // Focus next field
+              const nextFieldId = fieldIds[currentIndex + 1];
+              const nextField = formFieldRefs.current[nextFieldId];
+              if (nextField) {
+                nextField.focus();
+              }
+            } else if (currentStep === wizardSteps.length) {
+              // Last field on last step - submit form
+              handleSubmit();
+            } else {
+              // Last field on current step - go to next step
+              handleNextStep();
+            }
+          }
+          return;
+        }
+        
+        // Ctrl/Cmd + Enter: Submit form
+        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+          e.preventDefault();
+          if (currentStep === wizardSteps.length) {
+            handleSubmit();
+          } else {
+            handleNextStep();
+          }
+          return;
+        }
+        
+        // Ctrl/Cmd + S: Save/Submit (if on last step)
+        if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+          e.preventDefault();
+          if (currentStep === wizardSteps.length) {
+            handleSubmit();
+          }
+          return;
+        }
+        
+        // Ctrl/Cmd + Arrow Left/Right: Navigate between steps
+        if ((e.ctrlKey || e.metaKey) && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+          e.preventDefault();
+          if (e.key === 'ArrowLeft' && currentStep > 1) {
+            handlePreviousStep();
+          } else if (e.key === 'ArrowRight' && currentStep < wizardSteps.length) {
+            handleNextStep();
+          }
+          return;
+        }
+        
+        // Arrow Left/Right on step indicator: Navigate steps
+        if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && target.classList.contains('wizard-step')) {
+          e.preventDefault();
+          if (e.key === 'ArrowLeft' && currentStep > 1) {
+            handlePreviousStep();
+          } else if (e.key === 'ArrowRight' && currentStep < wizardSteps.length) {
+            handleNextStep();
+          }
+          return;
+        }
+      }
+      
+      // Don't trigger shortcuts when typing in inputs/textarea (except handled above)
+      if (isInputField || isContentEditable) {
         // Allow Esc to cancel inline editing
         if (e.key === 'Escape' && editingField) {
           cancelInlineEdit();
@@ -280,8 +417,20 @@ export const ItemMaster: React.FC = () => {
       // Esc: Cancel edit mode or deselect item
       if (e.key === 'Escape') {
         if (viewMode === 'edit' || viewMode === 'add') {
-          setViewMode('list');
-          setFieldErrors({});
+          if (hasUnsavedChanges) {
+            setPendingNavigation(() => () => {
+              setViewMode('list');
+              setFieldErrors({});
+              setCurrentStep(1);
+              setCompletedSteps(new Set());
+            });
+            setShowUnsavedDialog(true);
+          } else {
+            setViewMode('list');
+            setFieldErrors({});
+            setCurrentStep(1);
+            setCompletedSteps(new Set());
+          }
         } else if (viewMode === 'details' && selectedItemId) {
           setSelectedItemId(null);
           setViewMode('list');
@@ -293,37 +442,12 @@ export const ItemMaster: React.FC = () => {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [viewMode, selectedItemId, editingField]);
+  }, [viewMode, selectedItemId, editingField, currentStep, hasUnsavedChanges]);
 
-  useEffect(() => {
-    if (viewMode === 'list') {
-      loadItems();
-    }
-  }, [viewMode, searchTerm, filterCategory, filterIndustryType, filterStockStatus, filterExpiryRisk, sortColumn, sortDirection]);
-
-  useEffect(() => {
-    if (selectedItemId && viewMode === 'details') {
-      loadItemDetails();
-    }
-  }, [selectedItemId, viewMode]);
-
-  useEffect(() => {
-    // Reload data when sub-tab changes for selected item
-    if (selectedItemId && selectedItem && viewMode === 'details') {
-      if (itemSubTab === 'batches' && selectedItem.industryFlags.requiresBatchTracking) {
-        loadBatches(selectedItemId);
-      } else if (itemSubTab === 'serials' && selectedItem.industryFlags.requiresSerialTracking) {
-        loadSerials(selectedItemId);
-      } else if (itemSubTab === 'expiry' && selectedItem.industryFlags.hasExpiryDate) {
-        loadExpiryAlerts(selectedItemId);
-      } else if (itemSubTab === 'variants' && selectedItem.hasVariants) {
-        loadVariants(selectedItemId);
-        loadVariantStock(selectedItemId);
-      }
-    }
-  }, [itemSubTab, selectedItemId]);
-
-  const loadItems = async () => {
+  // Define loadItems before useEffect that uses it
+  const loadItems = useCallback(async () => {
+    if (loadingItemsRef.current) return; // Prevent concurrent calls
+    loadingItemsRef.current = true;
     setLoading(true);
     setError(null);
     try {
@@ -370,9 +494,8 @@ export const ItemMaster: React.FC = () => {
             case 'in-stock':
               return summary.totalOnHand > 0;
             case 'low-stock':
-              return summary.totalOnHand > 0 && 
-                     item.reorderPoint !== undefined && 
-                     summary.totalOnHand < item.reorderPoint;
+              // Low stock filter removed - stock levels are managed in separate modules
+              return false;
             case 'out-of-stock':
               return summary.totalOnHand === 0;
             default:
@@ -448,8 +571,92 @@ export const ItemMaster: React.FC = () => {
       logger.error('[ItemMaster] Failed to load items', err);
     } finally {
       setLoading(false);
+      loadingItemsRef.current = false;
     }
-  };
+  }, [searchTerm, filterCategory, filterIndustryType, filterStockStatus, filterExpiryRisk, sortColumn, sortDirection, itemStockSummaries, expiryAlertsMap]);
+
+  useEffect(() => {
+    if (viewMode === 'list') {
+      // Create a key for this load combination
+      const loadKey = `${searchTerm}-${filterCategory}-${filterIndustryType}-${filterStockStatus}-${filterExpiryRisk}-${sortColumn}-${sortDirection}`;
+      if (loadKey === lastItemsLoadRef.current) return; // Already loaded this combination
+      loadItems();
+      lastItemsLoadRef.current = loadKey;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewMode, searchTerm, filterCategory, filterIndustryType, filterStockStatus, filterExpiryRisk, sortColumn, sortDirection, loadItems]);
+
+  // Define loadStockData before useEffect that uses it
+  const loadStockData = useCallback(async (itemId: string) => {
+    if (loadingStockRef.current) return; // Prevent concurrent calls
+    loadingStockRef.current = true;
+    setLoading(true); // Set loading state for UI
+    try {
+      const data = await inventoryService.getStockByItem(itemId);
+      setStockData(data);
+    } catch (err: any) {
+      logger.error('[ItemMaster] Failed to load stock data', err);
+      setStockData([]);
+    } finally {
+      loadingStockRef.current = false;
+      setLoading(false); // Clear loading state
+    }
+  }, []);
+
+  useEffect(() => {
+    if (selectedItemId && viewMode === 'details') {
+      // Reset last loaded ref when item changes to ensure fresh data loads
+      lastLoadedRef.current = { itemId: null, subTab: null };
+      // Clear stock data when item changes to prevent showing stale data
+      setStockData([]);
+      loadItemDetails();
+    }
+  }, [selectedItemId, viewMode]);
+
+  useEffect(() => {
+    // Reload data when sub-tab changes for selected item
+    // Only run if we have selectedItemId and selectedItem is loaded
+    if (!selectedItemId || viewMode !== 'details') return;
+    if (!selectedItem) return; // Wait for selectedItem to load
+    
+    // Prevent duplicate loads for the same itemId/subTab combination
+    const key = `${selectedItemId}-${itemSubTab}`;
+    const lastKey = lastLoadedRef.current.itemId && lastLoadedRef.current.subTab
+      ? `${lastLoadedRef.current.itemId}-${lastLoadedRef.current.subTab}`
+      : null;
+    
+    if (key === lastKey) return; // Already loaded this combination
+    
+    if (itemSubTab === 'edit') {
+      // Initialize formData when Edit tab is opened
+      setFormData({
+        sku: selectedItem.sku,
+        name: selectedItem.name,
+        description: selectedItem.description || '',
+        category: selectedItem.category || '',
+        barcode: (selectedItem as any).barcode || '',
+        unitOfMeasure: selectedItem.unitOfMeasure,
+        unitConversions: selectedItem.unitConversions,
+        industryFlags: selectedItem.industryFlags,
+        images: selectedItem.images || [],
+        dimensions: selectedItem.dimensions,
+        weight: selectedItem.weight,
+        tags: selectedItem.tags || [],
+      });
+      setHasUnsavedChanges(false);
+    } else if (itemSubTab === 'variants' && selectedItem.hasVariants) {
+      loadVariants(selectedItemId);
+      loadVariantStock(selectedItemId);
+    } else if (itemSubTab === 'stock') {
+      loadStockData(selectedItemId);
+    }
+    
+    // Update last loaded ref
+    lastLoadedRef.current = { itemId: selectedItemId, subTab: itemSubTab };
+    // Note: selectedItem is checked but not in deps to avoid loops when object reference changes
+    // We use selectedItem?.id as a stable dependency instead
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [itemSubTab, selectedItemId, viewMode, loadStockData, selectedItem?.id]);
   
   const loadExpiryAlertsForFiltering = async () => {
     try {
@@ -476,7 +683,8 @@ export const ItemMaster: React.FC = () => {
           loadVariantStock(selectedItemId),
         ]);
       } else {
-        setVariants([]);
+        // Only remove variants for this item, keep variants from other items
+        setVariants(prevVariants => prevVariants.filter(v => v.itemId !== selectedItemId));
         setVariantStock([]);
       }
       
@@ -651,10 +859,18 @@ export const ItemMaster: React.FC = () => {
   const loadVariants = async (itemId: string) => {
     try {
       const data = await inventoryService.getVariantsByItem(itemId);
-      setVariants(data);
+      logger.info(`[ItemMaster] Loaded ${data.length} variants for item ${itemId}`, data);
+      // Merge variants: keep variants from other items, replace variants for this item
+      setVariants(prevVariants => {
+        const otherItemVariants = prevVariants.filter(v => v.itemId !== itemId);
+        const merged = [...otherItemVariants, ...data];
+        logger.info(`[ItemMaster] Merged variants: ${merged.length} total (${data.length} for item ${itemId})`);
+        return merged;
+      });
     } catch (err: any) {
       logger.error('[ItemMaster] Failed to load variants', err);
-      setVariants([]);
+      // On error, only remove variants for this item, keep others
+      setVariants(prevVariants => prevVariants.filter(v => v.itemId !== itemId));
     }
   };
 
@@ -721,21 +937,30 @@ export const ItemMaster: React.FC = () => {
 
   const toggleRowExpand = async (itemId: string) => {
     const newExpanded = new Set(expandedRows);
-    if (newExpanded.has(itemId)) {
+    const isCurrentlyExpanded = newExpanded.has(itemId);
+    
+    if (isCurrentlyExpanded) {
       newExpanded.delete(itemId);
+      setExpandedRows(newExpanded);
     } else {
       newExpanded.add(itemId);
-      // Load variants for this item if it has variants
+      // Set expanded state immediately so row expands right away
+      setExpandedRows(newExpanded);
+      
+      // Always try to load variants when expanding, regardless of hasVariants flag
+      // The flag might not be set correctly, but variants could still exist
       const item = items.find(i => i.id === itemId);
-      if (item?.hasVariants) {
-        try {
-          await loadVariants(itemId);
-        } catch (err) {
-          logger.error('[ItemMaster] Failed to load variants for expanded row', err);
-        }
+      logger.info(`[ItemMaster] Expanding row for item ${itemId}, hasVariants: ${item?.hasVariants}`);
+      
+      // Always attempt to load variants - if none exist, API will return empty array
+      try {
+        await loadVariants(itemId);
+      } catch (err) {
+        logger.error('[ItemMaster] Failed to load variants for expanded row', err);
+        // On error, ensure variants array doesn't have stale data for this item
+        setVariants(prevVariants => prevVariants.filter(v => v.itemId !== itemId));
       }
     }
-    setExpandedRows(newExpanded);
   };
 
   const handleSort = (column: string) => {
@@ -814,9 +1039,6 @@ export const ItemMaster: React.FC = () => {
       'Unit of Measure': item.unitOfMeasure,
       Industry: item.industryFlags.industryType,
       Status: item.isActive ? 'Active' : 'Inactive',
-      'Min Stock Level': item.minStockLevel || '',
-      'Max Stock Level': item.maxStockLevel || '',
-      'Reorder Point': item.reorderPoint || '',
     }));
 
     const headers = Object.keys(csvData[0]);
@@ -837,16 +1059,6 @@ export const ItemMaster: React.FC = () => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-  };
-
-  const loadStockData = async (itemId: string) => {
-    try {
-      const data = await inventoryService.getStockByItem(itemId);
-      setStockData(data);
-    } catch (err: any) {
-      logger.error('[ItemMaster] Failed to load stock data', err);
-      setStockData([]);
-    }
   };
 
   const loadHistoryData = async (itemId: string) => {
@@ -911,26 +1123,6 @@ export const ItemMaster: React.FC = () => {
       newFieldErrors.unitOfMeasure = 'Unit of Measure is required';
     }
 
-    // Stock level validations
-    if (formData.minStockLevel !== undefined && formData.minStockLevel < 0) {
-      errors.push('Min Stock Level cannot be negative');
-      newFieldErrors.minStockLevel = 'Min Stock Level cannot be negative';
-    }
-    if (formData.maxStockLevel !== undefined && formData.maxStockLevel < 0) {
-      errors.push('Max Stock Level cannot be negative');
-      newFieldErrors.maxStockLevel = 'Max Stock Level cannot be negative';
-    }
-    if (formData.reorderPoint !== undefined && formData.reorderPoint < 0) {
-      errors.push('Reorder Point cannot be negative');
-      newFieldErrors.reorderPoint = 'Reorder Point cannot be negative';
-    }
-    if (formData.minStockLevel !== undefined && formData.maxStockLevel !== undefined && 
-        formData.minStockLevel > formData.maxStockLevel) {
-      errors.push('Min Stock Level cannot be greater than Max Stock Level');
-      newFieldErrors.minStockLevel = 'Min Stock Level cannot be greater than Max Stock Level';
-      newFieldErrors.maxStockLevel = 'Max Stock Level must be greater than Min Stock Level';
-    }
-
     // Unit conversions validation
     if (formData.unitConversions && formData.unitConversions.length > 0) {
       formData.unitConversions.forEach((conv, index) => {
@@ -943,6 +1135,21 @@ export const ItemMaster: React.FC = () => {
           newFieldErrors[`unitConversion_${index}`] = 'Conversion factor must be greater than 0';
         }
       });
+    }
+
+    // Industry flags validation
+    const flags = formData.industryFlags;
+    
+    // Rule 1: Serial Tracking + Batch Tracking are mutually exclusive
+    if (flags.requiresSerialTracking && flags.requiresBatchTracking) {
+      errors.push('Items cannot have both serial tracking and batch tracking enabled. They are mutually exclusive.');
+      newFieldErrors['industryFlags.batchSerial'] = 'Serial tracking and batch tracking cannot both be enabled';
+    }
+
+    // Rule 2: Perishable + Batch Tracking → Must have Expiry Date
+    if (flags.requiresBatchTracking && flags.isPerishable && !flags.hasExpiryDate) {
+      errors.push('Perishable items with batch tracking must have expiry date enabled');
+      newFieldErrors['industryFlags.perishableExpiry'] = 'Perishable items with batch tracking must have expiry date enabled';
     }
 
     setFieldErrors(newFieldErrors);
@@ -971,53 +1178,22 @@ export const ItemMaster: React.FC = () => {
       return;
     }
 
-    // Validate variants if any
-    if (formVariants.length > 0) {
-      const variantErrors: string[] = [];
-      const variantCodes = new Set<string>();
-      formVariants.forEach((variant, index) => {
-        if (!variant.code || !variant.name) {
-          variantErrors.push(`Variant ${index + 1}: Code and name are required`);
-        }
-        if (variantCodes.has(variant.code)) {
-          variantErrors.push(`Variant ${index + 1}: Duplicate variant code`);
-        }
-        variantCodes.add(variant.code);
-      });
-      if (variantErrors.length > 0) {
-        setError(variantErrors.join('. '));
-        return;
-      }
-    }
-
     try {
-      // Create item first
+      // Create item
       const createdItem = await inventoryService.createItem(formData);
-      setSuccess('Item created successfully');
-      
-      // Create variants if any
-      if (formVariants.length > 0) {
-        try {
-          const variantPromises = formVariants.map(variant => {
-            const { tempId, ...variantData } = variant;
-            return inventoryService.createVariant({
-              ...variantData,
-              itemId: createdItem.id,
-            });
-          });
-          await Promise.all(variantPromises);
-          setSuccess('Item and variants created successfully');
-        } catch (variantErr: any) {
-          logger.error('[ItemMaster] Failed to create variants', variantErr);
-          setError(`Item created but failed to create some variants: ${extractErrorMessage(variantErr, 'Variant creation failed')}`);
-        }
-      }
+      setSuccess('Item created successfully. You can now add variants in Product Details.');
       
       clearSuccessMessage();
-      setViewMode('list');
+      // Redirect to Product Details → Variants tab
+      setSelectedItemId(createdItem.id);
+      setSelectedItem(createdItem);
+      setViewMode('details');
+      setItemSubTab('variants');
       setFieldErrors({});
-      setFormVariants([]);
-      setEditingVariantIndex(null);
+      // Reload items list to refresh
+      await loadItems();
+      // Load full item details to ensure all data is available
+      await loadItemDetails();
       setFormData({
         sku: '',
         name: '',
@@ -1031,15 +1207,10 @@ export const ItemMaster: React.FC = () => {
           requiresBatchTracking: false,
           requiresSerialTracking: false,
           hasExpiryDate: false,
+          isHighValue: false,
           industryType: IndustryType.WAREHOUSE,
         },
         images: [],
-        costPrice: undefined,
-        sellingPrice: undefined,
-        margin: undefined,
-        supplierId: undefined,
-        supplierName: '',
-        supplierCode: '',
         dimensions: undefined,
         weight: undefined,
         tags: [],
@@ -1074,16 +1245,7 @@ export const ItemMaster: React.FC = () => {
         unitOfMeasure: formData.unitOfMeasure,
         unitConversions: formData.unitConversions,
         industryFlags: formData.industryFlags,
-        minStockLevel: formData.minStockLevel,
-        maxStockLevel: formData.maxStockLevel,
-        reorderPoint: formData.reorderPoint,
         images: formData.images,
-        costPrice: formData.costPrice,
-        sellingPrice: formData.sellingPrice,
-        margin: formData.margin,
-        supplierId: formData.supplierId,
-        supplierName: formData.supplierName,
-        supplierCode: formData.supplierCode,
         dimensions: formData.dimensions,
         weight: formData.weight,
         tags: formData.tags,
@@ -1133,22 +1295,11 @@ export const ItemMaster: React.FC = () => {
       unitOfMeasure: selectedItem.unitOfMeasure,
       unitConversions: selectedItem.unitConversions,
       industryFlags: selectedItem.industryFlags,
-      minStockLevel: selectedItem.minStockLevel,
-      maxStockLevel: selectedItem.maxStockLevel,
-      reorderPoint: selectedItem.reorderPoint,
       images: selectedItem.images || [],
-      costPrice: selectedItem.costPrice,
-      sellingPrice: selectedItem.sellingPrice,
-      margin: selectedItem.margin,
-      supplierId: selectedItem.supplierId,
-      supplierName: selectedItem.supplierName || '',
-      supplierCode: selectedItem.supplierCode || '',
       dimensions: selectedItem.dimensions,
       weight: selectedItem.weight,
       tags: selectedItem.tags || [],
     });
-    setFormVariants([]);
-    setEditingVariantIndex(null);
     setViewMode('edit');
   };
 
@@ -1166,9 +1317,10 @@ export const ItemMaster: React.FC = () => {
       unitOfMeasure: item.unitOfMeasure,
       unitConversions: item.unitConversions || [],
       industryFlags: item.industryFlags,
-      minStockLevel: item.minStockLevel,
-      maxStockLevel: item.maxStockLevel,
-      reorderPoint: item.reorderPoint,
+      images: item.images || [],
+      dimensions: item.dimensions,
+      weight: item.weight,
+      tags: item.tags || [],
     });
     setHasUnsavedChanges(false);
     setFieldErrors({});
@@ -1419,12 +1571,20 @@ export const ItemMaster: React.FC = () => {
                 const isExpanded = expandedRows.has(item.id);
                 const stockSummary = itemStockSummaries[item.id];
                 const itemVariants = variants.filter(v => v.itemId === item.id);
+                // Debug log when row is expanded
+                if (isExpanded && item.hasVariants) {
+                  logger.info(`[ItemMaster] Rendering expanded row for item ${item.id}, variants count: ${itemVariants.length}, total variants in state: ${variants.length}`);
+                }
                 return (
                   <React.Fragment key={item.id}>
                     <tr
                       className={`expandable-row ${selectedItemId === item.id ? 'selected-row' : ''}`}
                       onClick={() => {
-                        navigate(`/inventory/products/${item.id}`);
+                        setSelectedItemId(item.id);
+                        setViewMode('details');
+                        setItemSubTab('overview');
+                        setSelectedVariantId(null);
+                        setSearchParams({ itemId: item.id }, { replace: true });
                       }}
                       style={{ cursor: 'pointer', backgroundColor: selectedItemId === item.id ? '#f0f7ff' : 'transparent' }}
                     >
@@ -1480,7 +1640,8 @@ export const ItemMaster: React.FC = () => {
                                 e.stopPropagation();
                                 setSelectedItemId(item.id);
                                 setViewMode('details');
-                                setItemSubTab('batches');
+                                setItemSubTab('tracking');
+                                setTrackingSubView('batches');
                               }}
                               title="View Batches"
                             >
@@ -1495,7 +1656,8 @@ export const ItemMaster: React.FC = () => {
                                 e.stopPropagation();
                                 setSelectedItemId(item.id);
                                 setViewMode('details');
-                                setItemSubTab('serials');
+                                setItemSubTab('tracking');
+                                setTrackingSubView('serials');
                               }}
                               title="View Serials"
                             >
@@ -1522,156 +1684,48 @@ export const ItemMaster: React.FC = () => {
                         <td colSpan={9} className="expanded-content">
                           <div className="expanded-variants-container">
                             <div className="expanded-variants-header">
-                              <h4>Variants</h4>
+                              <h4>Variants ({itemVariants.length})</h4>
                               <Button
                                 variant="primary"
                                 size="sm"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  if (addingVariantForItem === item.id) {
-                                    setAddingVariantForItem(null);
-                                    setVariantFormData({ code: '', name: '', barcode: '', isDefault: false, images: [] });
-                                  } else {
-                                    setAddingVariantForItem(item.id);
-                                    setVariantFormData({ code: '', name: '', barcode: '', isDefault: false, images: [] });
-                                  }
+                                  setSelectedItemId(item.id);
+                                  setViewMode('details');
+                                  setItemSubTab('variants');
                                 }}
+                                title="Manage variants in Product Details"
                               >
-                                {addingVariantForItem === item.id ? 'Cancel' : '+ Add New Variant'}
+                                Manage Variants
                               </Button>
                             </div>
 
-                            {/* Add Variant Form */}
-                            {addingVariantForItem === item.id && (
-                              <div className="add-variant-form" onClick={(e) => e.stopPropagation()}>
-                                <div className="variant-form-grid">
-                                  <div className="variant-form-field">
-                                    <label>Variant Code *</label>
-                                    <Input
-                                      placeholder="e.g., RED-32GB"
-                                      value={variantFormData.code}
-                                      onChange={(e) => setVariantFormData({ ...variantFormData, code: e.target.value.toUpperCase() })}
-                                      style={{ width: '100%' }}
-                                    />
-                                  </div>
-                                  <div className="variant-form-field">
-                                    <label>Variant Name *</label>
-                                    <Input
-                                      placeholder="e.g., Red - 32GB"
-                                      value={variantFormData.name}
-                                      onChange={(e) => setVariantFormData({ ...variantFormData, name: e.target.value })}
-                                      style={{ width: '100%' }}
-                                    />
-                                  </div>
-                                  <div className="variant-form-field">
-                                    <label>Barcode</label>
-                                    <Input
-                                      placeholder="Optional barcode"
-                                      value={variantFormData.barcode}
-                                      onChange={(e) => setVariantFormData({ ...variantFormData, barcode: e.target.value })}
-                                      style={{ width: '100%' }}
-                                    />
-                                  </div>
-                                  <div className="variant-form-field checkbox-field">
-                                    <label>
-                                      <input
-                                        type="checkbox"
-                                        checked={variantFormData.isDefault}
-                                        onChange={(e) => setVariantFormData({ ...variantFormData, isDefault: e.target.checked })}
-                                      />
-                                      Set as Default Variant
-                                    </label>
-                                  </div>
-                                </div>
-                                <div className="variant-form-actions">
-                                  <Button
-                                    variant="primary"
-                                    size="sm"
-                                    onClick={async (e) => {
-                                      e.stopPropagation();
-                                      if (!variantFormData.code || !variantFormData.name) {
-                                        setError('Variant code and name are required');
-                                        return;
-                                      }
-                                      try {
-                                        await inventoryService.createVariant({
-                                          itemId: item.id,
-                                          code: variantFormData.code,
-                                          name: variantFormData.name,
-                                          barcode: variantFormData.barcode || undefined,
-                                          isDefault: variantFormData.isDefault,
-                                          images: variantFormData.images || [],
-                                        });
-                                        setSuccess('Variant created successfully');
-                                        clearSuccessMessage();
-                                        setAddingVariantForItem(null);
-                                        setVariantFormData({ code: '', name: '', barcode: '', isDefault: false, images: [] });
-                                        await loadVariants(item.id);
-                                        await loadVariantStock(item.id);
-                                        // Reload items to refresh hasVariants flag
-                                        loadItems();
-                                      } catch (err: any) {
-                                        const message = extractErrorMessage(err, 'Failed to create variant');
-                                        setError(message);
-                                        logger.error('[ItemMaster] Failed to create variant', err);
-                                      }
-                                    }}
-                                  >
-                                    Create Variant
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setAddingVariantForItem(null);
-                                      setVariantFormData({ code: '', name: '', barcode: '', isDefault: false, images: [] });
-                                    }}
-                                  >
-                                    Cancel
-                                  </Button>
-                                </div>
-                              </div>
-                            )}
-
-                            {/* Variants List - Table Format */}
+                            {/* Variants List - Read-Only Display */}
                             <div className="expanded-variants-list">
                               {itemVariants.length > 0 ? (
                                 <table className="variants-table">
                                   <thead>
                                     <tr>
-                                      <th style={{ width: '60px' }}>Image</th>
-                                      <th style={{ width: '150px' }}>Code</th>
+                                      <th style={{ width: '120px' }}>Code</th>
                                       <th style={{ width: '200px' }}>Name</th>
-                                      <th style={{ width: '120px' }}>Barcode</th>
                                       <th style={{ width: '100px' }}>Stock</th>
-                                      <th style={{ width: '120px' }}>Cost Price</th>
-                                      <th style={{ width: '120px' }}>Selling Price</th>
-                                      <th style={{ width: '100px' }}>Status</th>
-                                      <th style={{ width: '80px' }}>Default</th>
-                                      <th style={{ width: '100px' }}>Actions</th>
                                     </tr>
                                   </thead>
                                   <tbody>
                                     {itemVariants.map((variant) => {
                                       const stockInfo = variantStock.find(vs => vs.variantId === variant.id);
                                       return (
-                                        <tr key={variant.id} className="variant-row">
-                                          <td>
-                                            <div className="variant-table-image">
-                                              {variant.images && variant.images.length > 0 ? (
-                                                <img
-                                                  src={variant.images.find(img => img.isPrimary)?.url || variant.images[0].url}
-                                                  alt={variant.name}
-                                                  className="variant-thumbnail"
-                                                />
-                                              ) : (
-                                                <div className="variant-thumbnail-placeholder">
-                                                  <span>No Image</span>
-                                                </div>
-                                              )}
-                                            </div>
-                                          </td>
+                                        <tr 
+                                          key={variant.id} 
+                                          className="variant-row"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setSelectedItemId(item.id);
+                                            setViewMode('details');
+                                            setItemSubTab('variants');
+                                          }}
+                                          style={{ cursor: 'pointer' }}
+                                        >
                                           <td>
                                             <span className="variant-code-text">{variant.code}</span>
                                           </td>
@@ -1679,62 +1733,9 @@ export const ItemMaster: React.FC = () => {
                                             <span className="variant-name-text">{variant.name}</span>
                                           </td>
                                           <td>
-                                            <span className="variant-barcode-text">{variant.barcode || '-'}</span>
-                                          </td>
-                                          <td>
                                             <span className="variant-stock-text">
                                               {stockInfo?.totalOnHand || 0}
                                             </span>
-                                          </td>
-                                          <td>
-                                            {variant.costPriceOverride !== undefined ? (
-                                              <span className="variant-price-text">${variant.costPriceOverride.toFixed(2)}</span>
-                                            ) : (
-                                              <span className="variant-price-text text-muted">-</span>
-                                            )}
-                                          </td>
-                                          <td>
-                                            {variant.sellingPriceOverride !== undefined ? (
-                                              <span className="variant-price-text">${variant.sellingPriceOverride.toFixed(2)}</span>
-                                            ) : (
-                                              <span className="variant-price-text text-muted">-</span>
-                                            )}
-                                          </td>
-                                          <td>
-                                            <span className={`variant-status-badge ${variant.isActive ? 'active' : 'inactive'}`}>
-                                              {variant.isActive ? 'Active' : 'Inactive'}
-                                            </span>
-                                          </td>
-                                          <td>
-                                            {variant.isDefault && (
-                                              <span className="variant-default-badge">Default</span>
-                                            )}
-                                            {!variant.isDefault && <span className="text-muted">-</span>}
-                                          </td>
-                                          <td>
-                                            <div className="variant-row-actions">
-                                              <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={async (e) => {
-                                                  e.stopPropagation();
-                                                  try {
-                                                    await inventoryService.deleteVariant(variant.id);
-                                                    setSuccess('Variant deleted successfully');
-                                                    clearSuccessMessage();
-                                                    await loadVariants(item.id);
-                                                    await loadVariantStock(item.id);
-                                                  } catch (err: any) {
-                                                    const message = extractErrorMessage(err, 'Failed to delete variant');
-                                                    setError(message);
-                                                    logger.error('[ItemMaster] Failed to delete variant', err);
-                                                  }
-                                                }}
-                                                title="Delete Variant"
-                                              >
-                                                Delete
-                                              </Button>
-                                            </div>
                                           </td>
                                         </tr>
                                       );
@@ -1743,7 +1744,7 @@ export const ItemMaster: React.FC = () => {
                                 </table>
                               ) : (
                                 <div className="no-variants-message">
-                                  <p>No variants yet. Click "+ Add New Variant" to create one.</p>
+                                  <p>No variants yet. Click "Manage Variants" to add variants in Product Details.</p>
                                 </div>
                               )}
                             </div>
@@ -1762,6 +1763,71 @@ export const ItemMaster: React.FC = () => {
       </div>
     </div>
   );
+
+  // Step validation - validates only the current step
+  const validateStep = (step: number): boolean => {
+    const newFieldErrors: Record<string, string> = {};
+    let isValid = true;
+
+    // Step 1: Basic Information - SKU, Name, Unit of Measure are required
+    if (step === 1) {
+      if (!formData.sku?.trim()) {
+        newFieldErrors.sku = 'SKU is required';
+        isValid = false;
+      } else if (!/^[A-Z0-9-_]+$/.test(formData.sku)) {
+        newFieldErrors.sku = 'SKU must contain only uppercase letters, numbers, hyphens, and underscores';
+        isValid = false;
+      }
+
+      if (!formData.name?.trim()) {
+        newFieldErrors.name = 'Name is required';
+        isValid = false;
+      } else if (formData.name.trim().length > 500) {
+        newFieldErrors.name = 'Name must be 500 characters or less';
+        isValid = false;
+      }
+
+      if (!formData.unitOfMeasure?.trim()) {
+        newFieldErrors.unitOfMeasure = 'Unit of Measure is required';
+        isValid = false;
+      }
+    }
+
+    // Step 4: Industry Settings - Validate industry flags
+    if (step === 4) {
+      const flags = formData.industryFlags;
+      
+      // Rule 1: Serial Tracking + Batch Tracking are mutually exclusive
+      if (flags.requiresSerialTracking && flags.requiresBatchTracking) {
+        newFieldErrors['industryFlags.batchSerial'] = 'Serial tracking and batch tracking cannot both be enabled';
+        isValid = false;
+      }
+
+      // Rule 2: Perishable + Batch Tracking → Must have Expiry Date
+      if (flags.requiresBatchTracking && flags.isPerishable && !flags.hasExpiryDate) {
+        newFieldErrors['industryFlags.perishableExpiry'] = 'Perishable items with batch tracking must have expiry date enabled';
+        isValid = false;
+      }
+    }
+
+    // Step 5: Tags - no validation needed (optional field)
+
+    // Update field errors
+    if (!isValid) {
+      setFieldErrors(newFieldErrors);
+      setError('Please fix the errors before proceeding to the next step');
+    } else {
+      // Clear errors for this step
+      const updatedErrors = { ...fieldErrors };
+      Object.keys(newFieldErrors).forEach(key => {
+        delete updatedErrors[key];
+      });
+      setFieldErrors(updatedErrors);
+      setError(null);
+    }
+
+    return isValid;
+  };
 
   // Step navigation handlers
   const handleNextStep = () => {
@@ -1791,6 +1857,14 @@ export const ItemMaster: React.FC = () => {
     }
   };
 
+  const handleSubmit = async () => {
+    if (viewMode === 'add') {
+      await handleCreate();
+    } else if (viewMode === 'edit') {
+      await handleUpdate();
+    }
+  };
+
   // Reset wizard when form mode changes
   useEffect(() => {
     if (viewMode === 'add' || viewMode === 'edit') {
@@ -1810,8 +1884,20 @@ export const ItemMaster: React.FC = () => {
         return (
           <div key={step.id} style={{ display: 'flex', alignItems: 'center', flex: 1, position: 'relative' }}>
             <div
+              ref={(el) => { stepIndicatorRefs.current[step.id] = el; }}
               className={`wizard-step ${isActive ? 'active' : ''} ${isCompleted ? 'completed' : ''} ${isClickable ? 'clickable' : ''}`}
               onClick={() => isClickable && handleStepClick(step.id)}
+              onKeyDown={(e) => {
+                if (isClickable && (e.key === 'Enter' || e.key === ' ')) {
+                  e.preventDefault();
+                  handleStepClick(step.id);
+                }
+              }}
+              tabIndex={isClickable ? 0 : -1}
+              role="button"
+              aria-label={`Step ${step.id}: ${step.label}`}
+              aria-current={isActive ? 'step' : undefined}
+              id={`step-${step.id}`}
             >
               <div className="wizard-step-number">
                 {isCompleted ? '✓' : step.id}
@@ -1840,13 +1926,16 @@ export const ItemMaster: React.FC = () => {
       <div className="wizard-content">
         {/* Step 1: Basic Information */}
         {currentStep === 1 && (
-          <div className="step-content" data-step="basic">
+          <div className="step-content" data-step="basic" role="tabpanel" aria-labelledby={`step-${currentStep}`}>
             <div className="form-section">
               <h3 className="form-section-title">Basic Information</h3>
               
               <div className="form-group">
-                <label>SKU *</label>
+                <label htmlFor="sku-field">SKU *</label>
                 <Input
+                  id="sku-field"
+                  data-field-id="sku"
+                  ref={(el) => { formFieldRefs.current['sku'] = el; }}
                   value={formData.sku}
                   onChange={(e) => {
                     setFormData({ ...formData, sku: e.target.value.toUpperCase() });
@@ -1860,13 +1949,18 @@ export const ItemMaster: React.FC = () => {
                   disabled={viewMode === 'edit'}
                   placeholder="ITEM-001"
                   className={fieldErrors.sku ? 'error-input' : ''}
+                  aria-invalid={!!fieldErrors.sku}
+                  aria-describedby={fieldErrors.sku ? 'sku-error' : undefined}
                 />
-                {fieldErrors.sku && <div className="field-error">{fieldErrors.sku}</div>}
+                {fieldErrors.sku && <div id="sku-error" className="field-error" role="alert">{fieldErrors.sku}</div>}
               </div>
 
               <div className="form-group">
-                <label>Barcode</label>
+                <label htmlFor="barcode-field">Barcode</label>
                 <Input
+                  id="barcode-field"
+                  data-field-id="barcode"
+                  ref={(el) => { formFieldRefs.current['barcode'] = el; }}
                   value={formData.barcode || ''}
                   onChange={(e) => {
                     setFormData({ ...formData, barcode: e.target.value });
@@ -1878,13 +1972,18 @@ export const ItemMaster: React.FC = () => {
                     }
                   }}
                   placeholder="1234567890123"
+                  aria-invalid={!!fieldErrors.barcode}
+                  aria-describedby={fieldErrors.barcode ? 'barcode-error' : undefined}
                 />
-                {fieldErrors.barcode && <div className="field-error">{fieldErrors.barcode}</div>}
+                {fieldErrors.barcode && <div id="barcode-error" className="field-error" role="alert">{fieldErrors.barcode}</div>}
               </div>
 
               <div className="form-group">
-                <label>Name *</label>
+                <label htmlFor="name-field">Name *</label>
                 <Input
+                  id="name-field"
+                  data-field-id="name"
+                  ref={(el) => { formFieldRefs.current['name'] = el; }}
                   value={formData.name}
                   onChange={(e) => {
                     setFormData({ ...formData, name: e.target.value });
@@ -1897,13 +1996,18 @@ export const ItemMaster: React.FC = () => {
                   }}
                   placeholder="Item Name"
                   className={fieldErrors.name ? 'error-input' : ''}
+                  aria-invalid={!!fieldErrors.name}
+                  aria-describedby={fieldErrors.name ? 'name-error' : undefined}
                 />
-                {fieldErrors.name && <div className="field-error">{fieldErrors.name}</div>}
+                {fieldErrors.name && <div id="name-error" className="field-error" role="alert">{fieldErrors.name}</div>}
               </div>
 
               <div className="form-group">
-                <label>Description</label>
+                <label htmlFor="description-field">Description</label>
                 <textarea
+                  id="description-field"
+                  data-field-id="description"
+                  ref={(el) => { formFieldRefs.current['description'] = el; }}
                   value={formData.description}
                   onChange={(e) => {
                     setFormData({ ...formData, description: e.target.value });
@@ -1920,8 +2024,11 @@ export const ItemMaster: React.FC = () => {
 
               <div className="form-row">
                 <div className="form-group">
-                  <label>Category</label>
+                  <label htmlFor="category-field">Category</label>
                   <Input
+                    id="category-field"
+                    data-field-id="category"
+                    ref={(el) => { formFieldRefs.current['category'] = el; }}
                     value={formData.category}
                     onChange={(e) => {
                       setFormData({ ...formData, category: e.target.value });
@@ -1937,8 +2044,11 @@ export const ItemMaster: React.FC = () => {
                   </datalist>
                 </div>
                 <div className="form-group">
-                  <label>Unit of Measure *</label>
+                  <label htmlFor="unit-field">Unit of Measure *</label>
                   <Select
+                    id="unit-field"
+                    data-field-id="unitOfMeasure"
+                    ref={(el) => { formFieldRefs.current['unitOfMeasure'] = el; }}
                     value={formData.unitOfMeasure}
                     onChange={(e) => {
                       setFormData({ ...formData, unitOfMeasure: e.target.value });
@@ -1950,6 +2060,8 @@ export const ItemMaster: React.FC = () => {
                       }
                     }}
                     className={fieldErrors.unitOfMeasure ? 'error-input' : ''}
+                    aria-invalid={!!fieldErrors.unitOfMeasure}
+                    aria-describedby={fieldErrors.unitOfMeasure ? 'unit-error' : undefined}
                   >
                     <option value="">Select unit</option>
                     <option value="pcs">pcs (Pieces)</option>
@@ -1963,7 +2075,7 @@ export const ItemMaster: React.FC = () => {
                     <option value="pack">pack (Packs)</option>
                     <option value="carton">carton (Cartons)</option>
                   </Select>
-                  {fieldErrors.unitOfMeasure && <div className="field-error">{fieldErrors.unitOfMeasure}</div>}
+                  {fieldErrors.unitOfMeasure && <div id="unit-error" className="field-error" role="alert">{fieldErrors.unitOfMeasure}</div>}
                 </div>
               </div>
             </div>
@@ -1972,7 +2084,7 @@ export const ItemMaster: React.FC = () => {
 
         {/* Step 2: Images & Media */}
         {currentStep === 2 && (
-          <div className="step-content" data-step="images">
+          <div className="step-content" data-step="images" role="tabpanel" aria-labelledby={`step-${currentStep}`}>
             <div className="form-section">
               <h3 className="form-section-title">Product Images</h3>
               <p className="form-section-description">Upload product images. The first image will be used as the primary image.</p>
@@ -1990,104 +2102,9 @@ export const ItemMaster: React.FC = () => {
           </div>
         )}
 
-        {/* Step 3: Pricing & Supplier */}
+        {/* Step 3: Physical Attributes */}
         {currentStep === 3 && (
-          <div className="step-content" data-step="pricing">
-            <div className="form-section">
-              <h3 className="form-section-title">Pricing</h3>
-              <div className="pricing-grid">
-                <div className="form-group">
-                  <label>Cost Price</label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    value={formData.costPrice || ''}
-                    onChange={(e) => {
-                      const value = e.target.value ? parseFloat(e.target.value) : undefined;
-                      const newData = { ...formData, costPrice: value };
-                      if (value && formData.sellingPrice && value > 0) {
-                        newData.margin = ((formData.sellingPrice - value) / value) * 100;
-                      } else {
-                        newData.margin = undefined;
-                      }
-                      setFormData(newData);
-                      setHasUnsavedChanges(true);
-                    }}
-                    placeholder="0.00"
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Selling Price</label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    value={formData.sellingPrice || ''}
-                    onChange={(e) => {
-                      const value = e.target.value ? parseFloat(e.target.value) : undefined;
-                      const newData = { ...formData, sellingPrice: value };
-                      if (value && formData.costPrice && formData.costPrice > 0) {
-                        newData.margin = ((value - formData.costPrice) / formData.costPrice) * 100;
-                      } else {
-                        newData.margin = undefined;
-                      }
-                      setFormData(newData);
-                      setHasUnsavedChanges(true);
-                    }}
-                    placeholder="0.00"
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Margin (%)</label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    value={formData.margin !== undefined ? formData.margin.toFixed(2) : ''}
-                    disabled
-                    placeholder="Auto-calculated"
-                    style={{ backgroundColor: '#f5f5f5', cursor: 'not-allowed' }}
-                  />
-                  {formData.margin !== undefined && (
-                    <div className={`margin-indicator ${formData.margin >= 30 ? 'good' : formData.margin >= 15 ? 'moderate' : 'low'}`}>
-                      {formData.margin >= 30 ? '✓ Good Margin' : formData.margin >= 15 ? '⚠ Moderate Margin' : '⚠ Low Margin'}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className="form-section">
-              <h3 className="form-section-title">Supplier Information</h3>
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Supplier Name</label>
-                  <Input
-                    value={formData.supplierName || ''}
-                    onChange={(e) => {
-                      setFormData({ ...formData, supplierName: e.target.value });
-                      setHasUnsavedChanges(true);
-                    }}
-                    placeholder="Supplier name"
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Supplier Code</label>
-                  <Input
-                    value={formData.supplierCode || ''}
-                    onChange={(e) => {
-                      setFormData({ ...formData, supplierCode: e.target.value });
-                      setHasUnsavedChanges(true);
-                    }}
-                    placeholder="Supplier code"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Step 4: Physical Attributes */}
-        {currentStep === 4 && (
-          <div className="step-content" data-step="dimensions">
+          <div className="step-content" data-step="dimensions" role="tabpanel" aria-labelledby={`step-${currentStep}`}>
             <div className="form-section">
               <h3 className="form-section-title">Dimensions & Weight</h3>
               <div className="dimensions-grid">
@@ -2232,7 +2249,7 @@ export const ItemMaster: React.FC = () => {
 
         {/* Step 5: Industry Settings */}
         {currentStep === 5 && (
-          <div className="step-content" data-step="industry">
+          <div className="step-content" data-step="industry" role="tabpanel" aria-labelledby={`step-${currentStep}`}>
             <div className="form-section">
               <h3 className="form-section-title">Industry Type</h3>
               <div className="form-group">
@@ -2268,64 +2285,112 @@ export const ItemMaster: React.FC = () => {
                       type="checkbox"
                       checked={formData.industryFlags.isPerishable}
                       onChange={(e) => {
+                        const newFlags = {
+                          ...formData.industryFlags,
+                          isPerishable: e.target.checked,
+                        };
+                        // Auto-check expiry date if perishable + batch tracking
+                        if (e.target.checked && formData.industryFlags.requiresBatchTracking && !formData.industryFlags.hasExpiryDate) {
+                          newFlags.hasExpiryDate = true;
+                        }
                         setFormData({
                           ...formData,
-                          industryFlags: {
-                            ...formData.industryFlags,
-                            isPerishable: e.target.checked,
-                          },
+                          industryFlags: newFlags,
                         });
                         setHasUnsavedChanges(true);
                       }}
                     />
                     <span className="checkbox-text">
                       <strong>Perishable</strong>
-                      <span className="checkbox-description">Item has expiration date</span>
+                      <span className="checkbox-description">Item has limited shelf life and degrades over time</span>
                     </span>
                   </label>
+                  {formData.industryFlags.isPerishable && (
+                    <div className="flag-hint" style={{ marginTop: '4px', fontSize: '12px', color: '#666' }}>
+                      ℹ️ This will enable expiry date tracking in Inventory Management
+                    </div>
+                  )}
                 </div>
                 <div className="form-group checkbox-enhanced">
                   <label className="checkbox-label">
                     <input
                       type="checkbox"
                       checked={formData.industryFlags.requiresBatchTracking}
-                      onChange={(e) =>
+                      disabled={formData.industryFlags.requiresSerialTracking}
+                      onChange={(e) => {
+                        const newFlags = {
+                          ...formData.industryFlags,
+                          requiresBatchTracking: e.target.checked,
+                        };
+                        // Auto-check expiry date if perishable + batch tracking
+                        if (e.target.checked && formData.industryFlags.isPerishable && !formData.industryFlags.hasExpiryDate) {
+                          newFlags.hasExpiryDate = true;
+                        }
                         setFormData({
                           ...formData,
-                          industryFlags: {
-                            ...formData.industryFlags,
-                            requiresBatchTracking: e.target.checked,
-                          },
-                        })
-                      }
+                          industryFlags: newFlags,
+                        });
+                        setHasUnsavedChanges(true);
+                      }}
                     />
                     <span className="checkbox-text">
                       <strong>Requires Batch Tracking</strong>
-                      <span className="checkbox-description">Track items by batch number</span>
+                      <span className="checkbox-description">Track items by batch/lot number for traceability</span>
                     </span>
                   </label>
+                  {formData.industryFlags.requiresSerialTracking && (
+                    <div className="flag-error" style={{ marginTop: '4px', fontSize: '12px', color: '#d32f2f' }}>
+                      ⚠️ Cannot enable batch tracking when serial tracking is enabled
+                    </div>
+                  )}
+                  {formData.industryFlags.requiresBatchTracking && !formData.industryFlags.requiresSerialTracking && (
+                    <div className="flag-hint" style={{ marginTop: '4px', fontSize: '12px', color: '#666' }}>
+                      ℹ️ Batch numbers will be required on all stock movements
+                    </div>
+                  )}
                 </div>
                 <div className="form-group checkbox-enhanced">
                   <label className="checkbox-label">
                     <input
                       type="checkbox"
                       checked={formData.industryFlags.requiresSerialTracking}
+                      disabled={formData.industryFlags.requiresBatchTracking}
                       onChange={(e) => {
+                        const newFlags = {
+                          ...formData.industryFlags,
+                          requiresSerialTracking: e.target.checked,
+                        };
+                        // If enabling serial tracking, disable batch tracking
+                        if (e.target.checked && formData.industryFlags.requiresBatchTracking) {
+                          newFlags.requiresBatchTracking = false;
+                        }
                         setFormData({
                           ...formData,
-                          industryFlags: {
-                            ...formData.industryFlags,
-                            requiresSerialTracking: e.target.checked,
-                          },
+                          industryFlags: newFlags,
                         });
                         setHasUnsavedChanges(true);
                       }}
                     />
                     <span className="checkbox-text">
                       <strong>Requires Serial Tracking</strong>
-                      <span className="checkbox-description">Track items by serial number</span>
+                      <span className="checkbox-description">Track items by unique serial number (one per unit)</span>
                     </span>
                   </label>
+                  {formData.industryFlags.requiresBatchTracking && (
+                    <div className="flag-error" style={{ marginTop: '4px', fontSize: '12px', color: '#d32f2f' }}>
+                      ⚠️ Cannot enable serial tracking when batch tracking is enabled
+                    </div>
+                  )}
+                  {formData.industryFlags.requiresSerialTracking && !formData.industryFlags.requiresBatchTracking && (
+                    <div className="flag-hint" style={{ marginTop: '4px', fontSize: '12px', color: '#666' }}>
+                      ℹ️ Serial numbers will be required for each unit
+                      {!formData.industryFlags.isHighValue && (
+                        <span style={{ display: 'block', marginTop: '2px', color: '#f57c00' }}>
+                          💡 Consider marking as High Value for enhanced security
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <div className="form-group checkbox-enhanced">
                   <label className="checkbox-label">
@@ -2344,263 +2409,79 @@ export const ItemMaster: React.FC = () => {
                     />
                     <span className="checkbox-text">
                       <strong>Has Expiry Date</strong>
-                      <span className="checkbox-description">Item expires and needs monitoring</span>
+                      <span className="checkbox-description">Item has an expiration date that must be monitored</span>
                     </span>
                   </label>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Step 6: Stock Management */}
-        {currentStep === 6 && (
-          <div className="step-content" data-step="stock">
-            <div className="form-section">
-              <h3 className="form-section-title">Stock Levels</h3>
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Min Stock Level</label>
-                  <Input
-                    type="number"
-                    value={formData.minStockLevel || ''}
-                    onChange={(e) => {
-                      const value = e.target.value ? parseFloat(e.target.value) : undefined;
-                      setFormData({ ...formData, minStockLevel: value });
-                      setHasUnsavedChanges(true);
-                      if (fieldErrors.minStockLevel) {
-                        const newErrors = { ...fieldErrors };
-                        delete newErrors.minStockLevel;
-                        setFieldErrors(newErrors);
-                      }
-                    }}
-                    className={fieldErrors.minStockLevel ? 'error-input' : ''}
-                  />
-                  {fieldErrors.minStockLevel && <div className="field-error">{fieldErrors.minStockLevel}</div>}
-                </div>
-                <div className="form-group">
-                  <label>Max Stock Level</label>
-                  <Input
-                    type="number"
-                    value={formData.maxStockLevel || ''}
-                    onChange={(e) => {
-                      const value = e.target.value ? parseFloat(e.target.value) : undefined;
-                      setFormData({ ...formData, maxStockLevel: value });
-                      setHasUnsavedChanges(true);
-                      if (fieldErrors.maxStockLevel) {
-                        const newErrors = { ...fieldErrors };
-                        delete newErrors.maxStockLevel;
-                        setFieldErrors(newErrors);
-                      }
-                    }}
-                    className={fieldErrors.maxStockLevel ? 'error-input' : ''}
-                  />
-                  {fieldErrors.maxStockLevel && <div className="field-error">{fieldErrors.maxStockLevel}</div>}
-                </div>
-                <div className="form-group">
-                  <label>Reorder Point</label>
-                  <Input
-                    type="number"
-                    value={formData.reorderPoint || ''}
-                    onChange={(e) => {
-                      const value = e.target.value ? parseFloat(e.target.value) : undefined;
-                      setFormData({ ...formData, reorderPoint: value });
-                      setHasUnsavedChanges(true);
-                      if (fieldErrors.reorderPoint) {
-                        const newErrors = { ...fieldErrors };
-                        delete newErrors.reorderPoint;
-                        setFieldErrors(newErrors);
-                      }
-                    }}
-                    className={fieldErrors.reorderPoint ? 'error-input' : ''}
-                  />
-                  {fieldErrors.reorderPoint && <div className="field-error">{fieldErrors.reorderPoint}</div>}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Step 7: Variants */}
-        {currentStep === 7 && (
-          <div className="step-content" data-step="variants">
-            <div className="form-section variants-management">
-              <div className="form-section-header">
-                <div>
-                  <h3 className="form-section-title">Variants</h3>
-                  <p className="form-section-description">Add product variants with different attributes (color, size, etc.)</p>
-                </div>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => {
-                    const newVariant: CreateVariantRequest & { tempId: string } = {
-                      itemId: '',
-                      code: '',
-                      name: '',
-                      isDefault: formVariants.length === 0,
-                      barcode: '',
-                      images: [],
-                      tempId: `temp-${Date.now()}`,
-                    };
-                    setFormVariants([...formVariants, newVariant]);
-                    setEditingVariantIndex(formVariants.length);
-                  }}
-                  disabled={loading}
-                >
-                  + Add Variant
-                </Button>
-              </div>
-              
-              {formVariants.length > 0 && (
-                <div className="variants-list">
-                  {formVariants.map((variant, index) => (
-                    <div key={variant.tempId} className="variant-form-card">
-                      <div className="variant-form-card-header">
-                        <h4>Variant {index + 1}</h4>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            const newVariants = formVariants.filter((_, i) => i !== index);
-                            setFormVariants(newVariants);
-                            setEditingVariantIndex(null);
-                          }}
-                        >
-                          Remove
-                        </Button>
-                      </div>
-                      <div className="variant-form-fields">
-                        <div className="form-row">
-                          <div className="form-group">
-                            <label>Variant Code *</label>
-                            <Input
-                              value={variant.code}
-                              onChange={(e) => {
-                                const newVariants = [...formVariants];
-                                newVariants[index] = { ...variant, code: e.target.value.toUpperCase() };
-                                setFormVariants(newVariants);
-                                setHasUnsavedChanges(true);
-                              }}
-                              placeholder="RED-32GB"
-                            />
-                          </div>
-                          <div className="form-group">
-                            <label>Variant Name *</label>
-                            <Input
-                              value={variant.name}
-                              onChange={(e) => {
-                                const newVariants = [...formVariants];
-                                newVariants[index] = { ...variant, name: e.target.value };
-                                setFormVariants(newVariants);
-                                setHasUnsavedChanges(true);
-                              }}
-                              placeholder="Red - 32GB"
-                            />
-                          </div>
-                        </div>
-                        <div className="form-row">
-                          <div className="form-group">
-                            <label>Barcode</label>
-                            <Input
-                              value={variant.barcode || ''}
-                              onChange={(e) => {
-                                const newVariants = [...formVariants];
-                                newVariants[index] = { ...variant, barcode: e.target.value };
-                                setFormVariants(newVariants);
-                                setHasUnsavedChanges(true);
-                              }}
-                              placeholder="Optional barcode"
-                            />
-                          </div>
-                          <div className="form-group">
-                            <label>
-                              <input
-                                type="checkbox"
-                                checked={variant.isDefault || false}
-                                onChange={(e) => {
-                                  const newVariants = formVariants.map((v, i) => ({
-                                    ...v,
-                                    isDefault: i === index ? e.target.checked : false,
-                                  }));
-                                  setFormVariants(newVariants);
-                                  setHasUnsavedChanges(true);
-                                }}
-                              />
-                              Set as Default Variant
-                            </label>
-                          </div>
-                        </div>
-                        <div className="form-group">
-                          <label>Variant Images</label>
-                          <ImageUpload
-                            images={variant.images || []}
-                            onChange={(images) => {
-                              const newVariants = [...formVariants];
-                              newVariants[index] = { ...variant, images };
-                              setFormVariants(newVariants);
-                              setHasUnsavedChanges(true);
-                            }}
-                            maxImages={5}
-                            folder="variants"
-                            disabled={loading}
-                          />
-                        </div>
-                        <div className="form-row">
-                          <div className="form-group">
-                            <label>Cost Price Override</label>
-                            <Input
-                              type="number"
-                              step="0.01"
-                              value={variant.costPriceOverride || ''}
-                              onChange={(e) => {
-                                const newVariants = [...formVariants];
-                                newVariants[index] = {
-                                  ...variant,
-                                  costPriceOverride: e.target.value ? parseFloat(e.target.value) : undefined,
-                                };
-                                setFormVariants(newVariants);
-                                setHasUnsavedChanges(true);
-                              }}
-                              placeholder="Override item cost price"
-                            />
-                          </div>
-                          <div className="form-group">
-                            <label>Selling Price Override</label>
-                            <Input
-                              type="number"
-                              step="0.01"
-                              value={variant.sellingPriceOverride || ''}
-                              onChange={(e) => {
-                                const newVariants = [...formVariants];
-                                newVariants[index] = {
-                                  ...variant,
-                                  sellingPriceOverride: e.target.value ? parseFloat(e.target.value) : undefined,
-                                };
-                                setFormVariants(newVariants);
-                                setHasUnsavedChanges(true);
-                              }}
-                              placeholder="Override item selling price"
-                            />
-                          </div>
-                        </div>
-                      </div>
+                  {formData.industryFlags.hasExpiryDate && (
+                    <div className="flag-hint" style={{ marginTop: '4px', fontSize: '12px', color: '#666' }}>
+                      ℹ️ Expiry dates will be tracked and monitored
+                      {!formData.industryFlags.isPerishable && (
+                        <span style={{ display: 'block', marginTop: '2px' }}>
+                          Note: Non-perishable items can still have expiry dates
+                        </span>
+                      )}
                     </div>
-                  ))}
+                  )}
                 </div>
-              )}
-              {formVariants.length === 0 && (
-                <div className="empty-variants-message">
-                  <p>No variants added yet. Click "+ Add Variant" to create one.</p>
+                <div className="form-group checkbox-enhanced">
+                  <label className="checkbox-label">
+                    <input
+                      type="checkbox"
+                      checked={formData.industryFlags.isHighValue}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          industryFlags: {
+                            ...formData.industryFlags,
+                            isHighValue: e.target.checked,
+                          },
+                        })
+                      }
+                    />
+                    <span className="checkbox-text">
+                      <strong>High Value Item</strong>
+                      <span className="checkbox-description">Item has high monetary value requiring additional security</span>
+                    </span>
+                  </label>
+                  {formData.industryFlags.isHighValue && (
+                    <div className="flag-hint" style={{ marginTop: '4px', fontSize: '12px', color: '#666' }}>
+                      ℹ️ Additional security controls will be applied in Inventory Management
+                      {!formData.industryFlags.requiresSerialTracking && (
+                        <span style={{ display: 'block', marginTop: '2px', color: '#f57c00' }}>
+                          💡 Consider enabling Serial Tracking for better traceability
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+              {/* Validation errors display */}
+              {(fieldErrors['industryFlags'] || fieldErrors['industryFlags.batchSerial'] || fieldErrors['industryFlags.perishableExpiry']) && (
+                <div className="validation-errors" style={{ marginTop: '12px', padding: '8px', backgroundColor: '#ffebee', borderRadius: '4px' }}>
+                  {fieldErrors['industryFlags'] && (
+                    <div className="field-error" style={{ color: '#d32f2f', fontSize: '13px' }}>
+                      ⚠️ {fieldErrors['industryFlags']}
+                    </div>
+                  )}
+                  {fieldErrors['industryFlags.batchSerial'] && (
+                    <div className="field-error" style={{ color: '#d32f2f', fontSize: '13px' }}>
+                      ⚠️ {fieldErrors['industryFlags.batchSerial']}
+                    </div>
+                  )}
+                  {fieldErrors['industryFlags.perishableExpiry'] && (
+                    <div className="field-error" style={{ color: '#d32f2f', fontSize: '13px' }}>
+                      ⚠️ {fieldErrors['industryFlags.perishableExpiry']}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
           </div>
         )}
 
-        {/* Step 8: Tags & Metadata */}
-        {currentStep === 8 && (
-          <div className="step-content" data-step="tags">
+        {/* Step 5: Tags & Metadata */}
+        {currentStep === 5 && (
+          <div className="step-content" data-step="tags" role="tabpanel" aria-labelledby={`step-${currentStep}`}>
             <div className="form-section">
               <h3 className="form-section-title">Tags</h3>
               <p className="form-section-description">Add tags to help categorize and search for this item</p>
@@ -2693,691 +2574,6 @@ export const ItemMaster: React.FC = () => {
   );
 
   const handleToggleActive = async () => {
-        <label>SKU *</label>
-        <Input
-          value={formData.sku}
-          onChange={(e) => {
-            setFormData({ ...formData, sku: e.target.value.toUpperCase() });
-            if (fieldErrors.sku) {
-              const newErrors = { ...fieldErrors };
-              delete newErrors.sku;
-              setFieldErrors(newErrors);
-            }
-          }}
-          disabled={viewMode === 'edit'}
-          placeholder="ITEM-001"
-          className={fieldErrors.sku ? 'error-input' : ''}
-        />
-        {fieldErrors.sku && <div className="field-error">{fieldErrors.sku}</div>}
-      </div>
-
-      <div className="form-group">
-        <label>Barcode</label>
-        <Input
-            value={formData.barcode || ''}
-            onChange={(e) => {
-              setFormData({ ...formData, barcode: e.target.value });
-              setHasUnsavedChanges(true);
-              if (fieldErrors.barcode) {
-                const newErrors = { ...fieldErrors };
-                delete newErrors.barcode;
-                setFieldErrors(newErrors);
-              }
-            }}
-          placeholder="1234567890123"
-        />
-        {fieldErrors.barcode && <div className="field-error">{fieldErrors.barcode}</div>}
-      </div>
-
-      <div className="form-group">
-        <label>Name *</label>
-        <Input
-          value={formData.name}
-          onChange={(e) => {
-            setFormData({ ...formData, name: e.target.value });
-            setHasUnsavedChanges(true);
-            if (fieldErrors.name) {
-              const newErrors = { ...fieldErrors };
-              delete newErrors.name;
-              setFieldErrors(newErrors);
-            }
-          }}
-          placeholder="Item Name"
-          className={fieldErrors.name ? 'error-input' : ''}
-        />
-        {fieldErrors.name && <div className="field-error">{fieldErrors.name}</div>}
-      </div>
-
-      <div className="form-group">
-        <label>Description</label>
-        <textarea
-          value={formData.description}
-          onChange={(e) => {
-            setFormData({ ...formData, description: e.target.value });
-            setHasUnsavedChanges(true);
-          }}
-          rows={3}
-          placeholder="Item description"
-        />
-      </div>
-
-      <div className="form-row">
-        <div className="form-group">
-          <label>Category</label>
-          <Input
-            value={formData.category}
-            onChange={(e) => {
-              setFormData({ ...formData, category: e.target.value });
-              setHasUnsavedChanges(true);
-            }}
-            placeholder="Category"
-          />
-        </div>
-        <div className="form-group">
-          <label>Unit of Measure *</label>
-          <Input
-            value={formData.unitOfMeasure}
-            onChange={(e) => setFormData({ ...formData, unitOfMeasure: e.target.value })}
-            placeholder="pcs, kg, liters"
-          />
-        </div>
-      </div>
-
-      <div className="form-group">
-        <label>Industry Type *</label>
-        <Select
-          value={formData.industryFlags.industryType}
-          onChange={(e) => {
-            setFormData({
-              ...formData,
-              industryFlags: {
-                ...formData.industryFlags,
-                industryType: e.target.value as IndustryType,
-              },
-            });
-            setHasUnsavedChanges(true);
-          }}
-        >
-          {Object.values(IndustryType).map((type) => (
-            <option key={type} value={type}>
-              {type.charAt(0).toUpperCase() + type.slice(1)}
-            </option>
-          ))}
-        </Select>
-      </div>
-
-      <div className="form-group">
-        <label>
-          <input
-            type="checkbox"
-            checked={formData.industryFlags.isPerishable}
-            onChange={(e) => {
-              setFormData({
-                ...formData,
-                industryFlags: {
-                  ...formData.industryFlags,
-                  isPerishable: e.target.checked,
-                },
-              });
-              setHasUnsavedChanges(true);
-            }}
-          />
-          Perishable
-        </label>
-        <label>
-          <input
-            type="checkbox"
-            checked={formData.industryFlags.requiresBatchTracking}
-            onChange={(e) =>
-              setFormData({
-                ...formData,
-                industryFlags: {
-                  ...formData.industryFlags,
-                  requiresBatchTracking: e.target.checked,
-                },
-              })
-            }
-          />
-          Requires Batch Tracking
-        </label>
-        <label>
-          <input
-            type="checkbox"
-            checked={formData.industryFlags.requiresSerialTracking}
-            onChange={(e) => {
-              setFormData({
-                ...formData,
-                industryFlags: {
-                  ...formData.industryFlags,
-                  requiresSerialTracking: e.target.checked,
-                },
-              });
-              setHasUnsavedChanges(true);
-            }}
-          />
-          Requires Serial Tracking
-        </label>
-        <label>
-          <input
-            type="checkbox"
-            checked={formData.industryFlags.hasExpiryDate}
-            onChange={(e) =>
-              setFormData({
-                ...formData,
-                industryFlags: {
-                  ...formData.industryFlags,
-                  hasExpiryDate: e.target.checked,
-                },
-              })
-            }
-          />
-          Has Expiry Date
-        </label>
-      </div>
-
-      <div className="form-row">
-        <div className="form-group">
-          <label>Min Stock Level</label>
-          <Input
-            type="number"
-            value={formData.minStockLevel || ''}
-            onChange={(e) => {
-              const value = e.target.value ? parseFloat(e.target.value) : undefined;
-              setFormData({ ...formData, minStockLevel: value });
-              setHasUnsavedChanges(true);
-              if (fieldErrors.minStockLevel) {
-                const newErrors = { ...fieldErrors };
-                delete newErrors.minStockLevel;
-                setFieldErrors(newErrors);
-              }
-            }}
-            className={fieldErrors.minStockLevel ? 'error-input' : ''}
-          />
-          {fieldErrors.minStockLevel && <div className="field-error">{fieldErrors.minStockLevel}</div>}
-        </div>
-        <div className="form-group">
-          <label>Max Stock Level</label>
-          <Input
-            type="number"
-            value={formData.maxStockLevel || ''}
-            onChange={(e) => {
-              const value = e.target.value ? parseFloat(e.target.value) : undefined;
-              setFormData({ ...formData, maxStockLevel: value });
-              if (fieldErrors.maxStockLevel) {
-                const newErrors = { ...fieldErrors };
-                delete newErrors.maxStockLevel;
-                setFieldErrors(newErrors);
-              }
-            }}
-            className={fieldErrors.maxStockLevel ? 'error-input' : ''}
-          />
-          {fieldErrors.maxStockLevel && <div className="field-error">{fieldErrors.maxStockLevel}</div>}
-        </div>
-        <div className="form-group">
-          <label>Reorder Point</label>
-          <Input
-            type="number"
-            value={formData.reorderPoint || ''}
-            onChange={(e) => {
-              const value = e.target.value ? parseFloat(e.target.value) : undefined;
-              setFormData({ ...formData, reorderPoint: value });
-              setHasUnsavedChanges(true);
-              if (fieldErrors.reorderPoint) {
-                const newErrors = { ...fieldErrors };
-                delete newErrors.reorderPoint;
-                setFieldErrors(newErrors);
-              }
-            }}
-            className={fieldErrors.reorderPoint ? 'error-input' : ''}
-          />
-          {fieldErrors.reorderPoint && <div className="field-error">{fieldErrors.reorderPoint}</div>}
-        </div>
-      </div>
-
-      {/* Image Upload Section */}
-      <div className="form-section">
-        <h3 className="form-section-title">Product Images</h3>
-        <ImageUpload
-          images={formData.images || []}
-          onChange={(images) => {
-            setFormData({ ...formData, images });
-            setHasUnsavedChanges(true);
-          }}
-          maxImages={10}
-          folder="inventory"
-          disabled={loading}
-        />
-      </div>
-
-      {/* Pricing Section */}
-      <div className="form-section">
-        <h3 className="form-section-title">Pricing</h3>
-        <div className="pricing-grid">
-          <div className="form-group">
-            <label>Cost Price</label>
-            <Input
-              type="number"
-              step="0.01"
-              value={formData.costPrice || ''}
-              onChange={(e) => {
-                const value = e.target.value ? parseFloat(e.target.value) : undefined;
-                const newData = { ...formData, costPrice: value };
-                // Auto-calculate margin if both prices exist
-                if (value && formData.sellingPrice && value > 0) {
-                  newData.margin = ((formData.sellingPrice - value) / value) * 100;
-                } else {
-                  newData.margin = undefined;
-                }
-                setFormData(newData);
-                setHasUnsavedChanges(true);
-              }}
-              placeholder="0.00"
-            />
-          </div>
-          <div className="form-group">
-            <label>Selling Price</label>
-            <Input
-              type="number"
-              step="0.01"
-              value={formData.sellingPrice || ''}
-              onChange={(e) => {
-                const value = e.target.value ? parseFloat(e.target.value) : undefined;
-                const newData = { ...formData, sellingPrice: value };
-                // Auto-calculate margin if both prices exist
-                if (value && formData.costPrice && formData.costPrice > 0) {
-                  newData.margin = ((value - formData.costPrice) / formData.costPrice) * 100;
-                } else {
-                  newData.margin = undefined;
-                }
-                setFormData(newData);
-                setHasUnsavedChanges(true);
-              }}
-              placeholder="0.00"
-            />
-          </div>
-          <div className="form-group">
-            <label>Margin (%)</label>
-            <Input
-              type="number"
-              step="0.01"
-              value={formData.margin !== undefined ? formData.margin.toFixed(2) : ''}
-              disabled
-              placeholder="Auto-calculated"
-              style={{ backgroundColor: '#f5f5f5', cursor: 'not-allowed' }}
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Supplier Section */}
-      <div className="form-section">
-        <h3 className="form-section-title">Supplier Information</h3>
-        <div className="form-row">
-          <div className="form-group">
-            <label>Supplier Name</label>
-            <Input
-              value={formData.supplierName || ''}
-              onChange={(e) => {
-                setFormData({ ...formData, supplierName: e.target.value });
-                setHasUnsavedChanges(true);
-              }}
-              placeholder="Supplier name"
-            />
-          </div>
-          <div className="form-group">
-            <label>Supplier Code</label>
-            <Input
-              value={formData.supplierCode || ''}
-              onChange={(e) => {
-                setFormData({ ...formData, supplierCode: e.target.value });
-                setHasUnsavedChanges(true);
-              }}
-              placeholder="Supplier code"
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Dimensions Section */}
-      <div className="form-section">
-        <h3 className="form-section-title">Dimensions & Weight</h3>
-        <div className="dimensions-grid">
-          <div className="form-group">
-            <label>Length</label>
-            <Input
-              type="number"
-              step="0.01"
-              value={formData.dimensions?.length || ''}
-              onChange={(e) => {
-                const value = e.target.value ? parseFloat(e.target.value) : undefined;
-                setFormData({
-                  ...formData,
-                  dimensions: {
-                    ...formData.dimensions,
-                    length: value || 0,
-                    width: formData.dimensions?.width || 0,
-                    height: formData.dimensions?.height || 0,
-                    unit: formData.dimensions?.unit || 'cm',
-                  } as any,
-                });
-                setHasUnsavedChanges(true);
-              }}
-              placeholder="0.00"
-            />
-          </div>
-          <div className="form-group">
-            <label>Width</label>
-            <Input
-              type="number"
-              step="0.01"
-              value={formData.dimensions?.width || ''}
-              onChange={(e) => {
-                const value = e.target.value ? parseFloat(e.target.value) : undefined;
-                setFormData({
-                  ...formData,
-                  dimensions: {
-                    ...formData.dimensions,
-                    length: formData.dimensions?.length || 0,
-                    width: value || 0,
-                    height: formData.dimensions?.height || 0,
-                    unit: formData.dimensions?.unit || 'cm',
-                  } as any,
-                });
-                setHasUnsavedChanges(true);
-              }}
-              placeholder="0.00"
-            />
-          </div>
-          <div className="form-group">
-            <label>Height</label>
-            <Input
-              type="number"
-              step="0.01"
-              value={formData.dimensions?.height || ''}
-              onChange={(e) => {
-                const value = e.target.value ? parseFloat(e.target.value) : undefined;
-                setFormData({
-                  ...formData,
-                  dimensions: {
-                    ...formData.dimensions,
-                    length: formData.dimensions?.length || 0,
-                    width: formData.dimensions?.width || 0,
-                    height: value || 0,
-                    unit: formData.dimensions?.unit || 'cm',
-                  } as any,
-                });
-                setHasUnsavedChanges(true);
-              }}
-              placeholder="0.00"
-            />
-          </div>
-          <div className="form-group">
-            <label>Unit</label>
-            <Select
-              value={formData.dimensions?.unit || 'cm'}
-              onChange={(e) => {
-                setFormData({
-                  ...formData,
-                  dimensions: {
-                    ...formData.dimensions,
-                    length: formData.dimensions?.length || 0,
-                    width: formData.dimensions?.width || 0,
-                    height: formData.dimensions?.height || 0,
-                    unit: e.target.value,
-                  } as any,
-                });
-                setHasUnsavedChanges(true);
-              }}
-            >
-              <option value="cm">cm</option>
-              <option value="m">m</option>
-              <option value="inches">inches</option>
-              <option value="ft">ft</option>
-            </Select>
-          </div>
-          <div className="form-group">
-            <label>Weight</label>
-            <Input
-              type="number"
-              step="0.01"
-              value={formData.weight?.value || ''}
-              onChange={(e) => {
-                const value = e.target.value ? parseFloat(e.target.value) : undefined;
-                setFormData({
-                  ...formData,
-                  weight: {
-                    value: value || 0,
-                    unit: formData.weight?.unit || 'kg',
-                  } as any,
-                });
-                setHasUnsavedChanges(true);
-              }}
-              placeholder="0.00"
-            />
-          </div>
-          <div className="form-group">
-            <label>Weight Unit</label>
-            <Select
-              value={formData.weight?.unit || 'kg'}
-              onChange={(e) => {
-                setFormData({
-                  ...formData,
-                  weight: {
-                    value: formData.weight?.value || 0,
-                    unit: e.target.value,
-                  } as any,
-                });
-                setHasUnsavedChanges(true);
-              }}
-            >
-              <option value="kg">kg</option>
-              <option value="g">g</option>
-              <option value="lbs">lbs</option>
-              <option value="oz">oz</option>
-            </Select>
-          </div>
-        </div>
-      </div>
-
-      {/* Tags Section */}
-      <div className="form-section">
-        <h3 className="form-section-title">Tags</h3>
-        <div className="form-group">
-          <Input
-            value={(formData.tags || []).join(', ')}
-            onChange={(e) => {
-              const tags = e.target.value
-                .split(',')
-                .map(tag => tag.trim())
-                .filter(tag => tag.length > 0);
-              setFormData({ ...formData, tags });
-              setHasUnsavedChanges(true);
-            }}
-            placeholder="Enter tags separated by commas (e.g., electronics, popular, sale)"
-          />
-          <div className="tags-hint">Separate tags with commas</div>
-          {formData.tags && formData.tags.length > 0 && (
-            <div className="tags-display">
-              {formData.tags.map((tag, index) => (
-                <span key={index} className="tag-chip">
-                  {tag}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const newTags = formData.tags?.filter((_, i) => i !== index) || [];
-                      setFormData({ ...formData, tags: newTags });
-                      setHasUnsavedChanges(true);
-                    }}
-                    className="tag-remove"
-                  >
-                    ×
-                  </button>
-                </span>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Variants Management Section */}
-      <div className="form-section variants-management">
-        <div className="form-section-header">
-          <h3 className="form-section-title">Variants</h3>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => {
-              const newVariant: CreateVariantRequest & { tempId: string } = {
-                itemId: '',
-                code: '',
-                name: '',
-                isDefault: formVariants.length === 0,
-                barcode: '',
-                images: [],
-                tempId: `temp-${Date.now()}`,
-              };
-              setFormVariants([...formVariants, newVariant]);
-              setEditingVariantIndex(formVariants.length);
-            }}
-            disabled={loading}
-          >
-            + Add Variant
-          </Button>
-        </div>
-        
-        {formVariants.length > 0 && (
-          <div className="variants-list">
-            {formVariants.map((variant, index) => (
-              <div key={variant.tempId} className="variant-form-card">
-                <div className="variant-form-card-header">
-                  <h4>Variant {index + 1}</h4>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      const newVariants = formVariants.filter((_, i) => i !== index);
-                      setFormVariants(newVariants);
-                      setEditingVariantIndex(null);
-                    }}
-                  >
-                    Remove
-                  </Button>
-                </div>
-                <div className="variant-form-fields">
-                  <div className="form-row">
-                    <div className="form-group">
-                      <label>Variant Code *</label>
-                      <Input
-                        value={variant.code}
-                        onChange={(e) => {
-                          const newVariants = [...formVariants];
-                          newVariants[index] = { ...variant, code: e.target.value.toUpperCase() };
-                          setFormVariants(newVariants);
-                          setHasUnsavedChanges(true);
-                        }}
-                        placeholder="RED-32GB"
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label>Variant Name *</label>
-                      <Input
-                        value={variant.name}
-                        onChange={(e) => {
-                          const newVariants = [...formVariants];
-                          newVariants[index] = { ...variant, name: e.target.value };
-                          setFormVariants(newVariants);
-                          setHasUnsavedChanges(true);
-                        }}
-                        placeholder="Red - 32GB"
-                      />
-                    </div>
-                  </div>
-                  <div className="form-row">
-                    <div className="form-group">
-                      <label>Barcode</label>
-                      <Input
-                        value={variant.barcode || ''}
-                        onChange={(e) => {
-                          const newVariants = [...formVariants];
-                          newVariants[index] = { ...variant, barcode: e.target.value };
-                          setFormVariants(newVariants);
-                          setHasUnsavedChanges(true);
-                        }}
-                        placeholder="Optional barcode"
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label>
-                        <input
-                          type="checkbox"
-                          checked={variant.isDefault || false}
-                          onChange={(e) => {
-                            const newVariants = formVariants.map((v, i) => ({
-                              ...v,
-                              isDefault: i === index ? e.target.checked : false,
-                            }));
-                            setFormVariants(newVariants);
-                            setHasUnsavedChanges(true);
-                          }}
-                        />
-                        Set as Default Variant
-                      </label>
-                    </div>
-                  </div>
-                  <div className="form-group">
-                    <label>Variant Images</label>
-                    <ImageUpload
-                      images={variant.images || []}
-                      onChange={(images) => {
-                        const newVariants = [...formVariants];
-                        newVariants[index] = { ...variant, images };
-                        setFormVariants(newVariants);
-                        setHasUnsavedChanges(true);
-                      }}
-                      maxImages={5}
-                      folder="variants"
-                      disabled={loading}
-                    />
-                  </div>
-                  <div className="form-row">
-                    <div className="form-group">
-                      <label>Cost Price Override</label>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        value={variant.costPriceOverride || ''}
-                        onChange={(e) => {
-                          const newVariants = [...formVariants];
-                          newVariants[index] = {
-                            ...variant,
-                            costPriceOverride: e.target.value ? parseFloat(e.target.value) : undefined,
-                          };
-                          setFormVariants(newVariants);
-                          setHasUnsavedChanges(true);
-                        }}
-                        placeholder="Override item cost price"
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label>Selling Price Override</label>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        value={variant.sellingPriceOverride || ''}
-                        onChange={(e) => {
-                          const newVariants = [...formVariants];
-                          newVariants[index] = {
-                            ...variant,
-                            sellingPriceOverride: e.target.value ? parseFloat(e.target.value) : undefined,
-                          };
-                          setFormVariants(newVariants);
-                          setHasUnsavedChanges(true);
-                        }}
-                        placeholder="Override item selling price"
-                      />
-                    </div>
-
-  const handleToggleActive = async () => {
     if (!selectedItemId || !selectedItem) return;
     setError(null);
     setSuccess(null);
@@ -3399,31 +2595,57 @@ export const ItemMaster: React.FC = () => {
 
     return (
       <div className="item-detail-header">
-        <div className="item-detail-header-info">
-          <h2 className="item-detail-header-title">{selectedItem.name}</h2>
-          <div className="item-detail-header-sku">SKU: {selectedItem.sku}</div>
-        </div>
-        <div className="item-detail-header-actions">
-          <span className={`status-badge ${selectedItem.isActive ? 'status-active' : 'status-inactive'}`}>
-            {selectedItem.isActive ? 'Active' : 'Inactive'}
-          </span>
-          <Button 
-            variant={selectedItem.isActive ? 'secondary' : 'primary'} 
-            onClick={handleToggleActive} 
-            size="sm"
-            title={selectedItem.isActive ? 'Deactivate Item' : 'Activate Item'}
-          >
-            {selectedItem.isActive ? 'Deactivate' : 'Activate'}
-          </Button>
-          <Button variant="primary" onClick={handleEdit} size="sm">
-            Edit
-          </Button>
-          <Button variant="ghost" onClick={() => {
-            setSelectedItemId(null);
-            setViewMode('list');
-          }} title="Deselect Item" size="sm">
-            ✕
-          </Button>
+        <div className="item-detail-header-content">
+          <div className="item-detail-header-main">
+            <div className="item-detail-header-title-group">
+              <h2 className="item-detail-header-title">{selectedItem.name}</h2>
+              <span className={`item-detail-status-badge ${selectedItem.isActive ? 'status-active' : 'status-inactive'}`}>
+                {selectedItem.isActive ? 'Active' : 'Inactive'}
+              </span>
+            </div>
+            <div className="item-detail-header-meta">
+              <span className="item-detail-header-sku">{selectedItem.sku}</span>
+            </div>
+          </div>
+          <div className="item-detail-header-actions">
+            <Button 
+              variant="ghost" 
+              onClick={() => {
+                const newParams = new URLSearchParams(searchParams);
+                newParams.set('tab', 'movements');
+                newParams.set('create', '1');
+                newParams.set('itemId', selectedItem.id);
+                if (selectedVariantId) {
+                  newParams.set('variantId', selectedVariantId);
+                }
+                setSearchParams(newParams);
+              }} 
+              size="sm"
+              title="Create movement for this item"
+            >
+              Create Movement
+            </Button>
+            <Button 
+              variant={selectedItem.isActive ? 'secondary' : 'primary'} 
+              onClick={handleToggleActive} 
+              size="sm"
+              title={selectedItem.isActive ? 'Deactivate Item' : 'Activate Item'}
+            >
+              {selectedItem.isActive ? 'Deactivate' : 'Activate'}
+            </Button>
+            <Button 
+              variant="ghost" 
+              onClick={() => {
+                setSelectedItemId(null);
+                setViewMode('list');
+              }} 
+              title="Close Details" 
+              size="sm"
+              className="item-detail-close-btn"
+            >
+              ✕
+            </Button>
+          </div>
         </div>
       </div>
     );
@@ -3432,10 +2654,23 @@ export const ItemMaster: React.FC = () => {
   const renderOverviewView = () => {
     if (!selectedItem) return null;
 
+    // UI Governance: Define collapsible sections - Maximum 5 sections allowed
+    // Current sections: basic-info, industry-flags, description (conditional)
+    // DO NOT ADD MORE THAN 5 SECTIONS - Use modals or add to existing sections instead
+    const overviewSectionIds = [
+      'basic-info',
+      'industry-flags',
+      ...(selectedItem.description ? ['description'] : []),
+    ];
+    
+    // UI Governance: Runtime validation of collapsible sections limit
+    if (process.env.NODE_ENV === 'development') {
+      validateCollapsibleSections(overviewSectionIds.length);
+    }
+
     const isBasicInfoCollapsed = collapsedSections.has('basic-info');
     const isIndustryFlagsCollapsed = collapsedSections.has('industry-flags');
     const isDescriptionCollapsed = collapsedSections.has('description');
-    const isStockLevelsCollapsed = collapsedSections.has('stock-levels');
 
     return (
       <div className="overview-content">
@@ -3580,6 +2815,10 @@ export const ItemMaster: React.FC = () => {
                 <label>Has Expiry Date</label>
                 <div>{selectedItem.industryFlags.hasExpiryDate ? 'Yes' : 'No'}</div>
               </div>
+              <div>
+                <label>High Value Item</label>
+                <div>{selectedItem.industryFlags.isHighValue ? 'Yes' : 'No'}</div>
+              </div>
             </div>
           )}
         </div>
@@ -3646,115 +2885,17 @@ export const ItemMaster: React.FC = () => {
         )}
 
         {/* Stock Levels Section */}
-        {(selectedItem.minStockLevel ||
-          selectedItem.maxStockLevel ||
-          selectedItem.reorderPoint) && (
-          <div className="collapsible-section">
-            <div
-              className="collapsible-section-header"
-              onClick={() => toggleSectionCollapse('stock-levels')}
-            >
-              <h3>Stock Levels</h3>
-              <span className="collapsible-section-icon">
-                {isStockLevelsCollapsed ? '▶' : '▼'}
-              </span>
-            </div>
-            {!isStockLevelsCollapsed && (
-              <div className="collapsible-section-content">
-                <div className="inline-edit-field">
-                  <label>Min Stock Level</label>
-                  {editingField === 'minStockLevel' ? (
-                    <div className="inline-edit-input-wrapper">
-                      <Input
-                        type="number"
-                        value={editingValue || ''}
-                        onChange={(e) => setEditingValue(e.target.value)}
-                        onBlur={() => handleInlineEdit('minStockLevel', editingValue)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            handleInlineEdit('minStockLevel', editingValue);
-                          } else if (e.key === 'Escape') {
-                            cancelInlineEdit();
-                          }
-                        }}
-                        autoFocus
-                        disabled={savingField === 'minStockLevel'}
-                      />
-                      {savingField === 'minStockLevel' && <span className="saving-indicator">Saving...</span>}
-                    </div>
-                  ) : (
-                    <div className="inline-edit-display" onClick={() => startInlineEdit('minStockLevel', selectedItem.minStockLevel || '')}>
-                      <span>{selectedItem.minStockLevel || '-'}</span>
-                      <span className="edit-icon" title="Click to edit">✏️</span>
-                    </div>
-                  )}
-                </div>
-                <div className="inline-edit-field">
-                  <label>Max Stock Level</label>
-                  {editingField === 'maxStockLevel' ? (
-                    <div className="inline-edit-input-wrapper">
-                      <Input
-                        type="number"
-                        value={editingValue || ''}
-                        onChange={(e) => setEditingValue(e.target.value)}
-                        onBlur={() => handleInlineEdit('maxStockLevel', editingValue)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            handleInlineEdit('maxStockLevel', editingValue);
-                          } else if (e.key === 'Escape') {
-                            cancelInlineEdit();
-                          }
-                        }}
-                        autoFocus
-                        disabled={savingField === 'maxStockLevel'}
-                      />
-                      {savingField === 'maxStockLevel' && <span className="saving-indicator">Saving...</span>}
-                    </div>
-                  ) : (
-                    <div className="inline-edit-display" onClick={() => startInlineEdit('maxStockLevel', selectedItem.maxStockLevel || '')}>
-                      <span>{selectedItem.maxStockLevel || '-'}</span>
-                      <span className="edit-icon" title="Click to edit">✏️</span>
-                    </div>
-                  )}
-                </div>
-                <div className="inline-edit-field">
-                  <label>Reorder Point</label>
-                  {editingField === 'reorderPoint' ? (
-                    <div className="inline-edit-input-wrapper">
-                      <Input
-                        type="number"
-                        value={editingValue || ''}
-                        onChange={(e) => setEditingValue(e.target.value)}
-                        onBlur={() => handleInlineEdit('reorderPoint', editingValue)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            handleInlineEdit('reorderPoint', editingValue);
-                          } else if (e.key === 'Escape') {
-                            cancelInlineEdit();
-                          }
-                        }}
-                        autoFocus
-                        disabled={savingField === 'reorderPoint'}
-                      />
-                      {savingField === 'reorderPoint' && <span className="saving-indicator">Saving...</span>}
-                    </div>
-                  ) : (
-                    <div className="inline-edit-display" onClick={() => startInlineEdit('reorderPoint', selectedItem.reorderPoint || '')}>
-                      <span>{selectedItem.reorderPoint || '-'}</span>
-                      <span className="edit-icon" title="Click to edit">✏️</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
       </div>
     );
   };
 
   const renderStockView = () => {
     if (!selectedItem) return null;
+    
+    // Show loading state while stock data is being fetched
+    if (loading && loadingStockRef.current && stockData.length === 0) {
+      return <LoadingState message="Loading stock data..." />;
+    }
 
     // Aggregate stock similar to Stock Summary Report logic
     // Group by variantId (null for items without variants)
@@ -3876,17 +3017,56 @@ export const ItemMaster: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {Object.values(stockByLocation).map((locStock) => (
-                  <tr key={locStock.location.id}>
-                    <td>{locStock.location.code}</td>
-                    <td>{locStock.location.name}</td>
-                    <td>{locStock.onHand}</td>
-                    <td>{locStock.reserved}</td>
-                    <td>{locStock.blocked}</td>
-                    <td>{locStock.damaged}</td>
-                    <td>{locStock.available}</td>
-                  </tr>
-                ))}
+                {Object.values(stockByLocation).map((locStock) => {
+                  const isHighlighted = locationIdFromUrl === locStock.location.id;
+                  return (
+                    <tr
+                      key={locStock.location.id}
+                      className={isHighlighted ? 'location-row-highlighted' : ''}
+                      ref={(el) => {
+                        if (isHighlighted && el) {
+                          setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
+                        }
+                      }}
+                    >
+                      <td>
+                        <button
+                          className="location-link-button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            // Clear item-related params when navigating to locations
+                            const newParams = new URLSearchParams();
+                            newParams.set('tab', 'locations');
+                            newParams.set('locationId', locStock.location.id);
+                            navigate(`/inventory?${newParams.toString()}`);
+                          }}
+                        >
+                          {locStock.location.code}
+                        </button>
+                      </td>
+                      <td>
+                        <button
+                          className="location-link-button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            // Clear item-related params when navigating to locations
+                            const newParams = new URLSearchParams();
+                            newParams.set('tab', 'locations');
+                            newParams.set('locationId', locStock.location.id);
+                            navigate(`/inventory?${newParams.toString()}`);
+                          }}
+                        >
+                          {locStock.location.name}
+                        </button>
+                      </td>
+                      <td>{locStock.onHand}</td>
+                      <td>{locStock.reserved}</td>
+                      <td>{locStock.blocked}</td>
+                      <td>{locStock.damaged}</td>
+                      <td>{locStock.available}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           )}
@@ -3936,6 +3116,12 @@ export const ItemMaster: React.FC = () => {
     const hasSerials = selectedItem.industryFlags.requiresSerialTracking;
     const hasExpiry = selectedItem.industryFlags.hasExpiryDate;
 
+    // UI Governance: Count active sub-views - Maximum 3 per tab
+    const activeSubViews = [hasBatches, hasSerials, hasExpiry].filter(Boolean).length;
+    if (process.env.NODE_ENV === 'development') {
+      validateSubViews(activeSubViews, 'Tracking');
+    }
+
     // Set default sub-view based on what's available
     if (!hasBatches && !hasSerials && !hasExpiry) {
       return <EmptyState message="No tracking features enabled for this item" />;
@@ -3944,6 +3130,7 @@ export const ItemMaster: React.FC = () => {
     return (
       <div className="tracking-view">
         {/* Segmented buttons for tracking sub-views */}
+        {/* UI Governance: Maximum 3 sub-views per tab enforced via TrackingSubView type - DO NOT ADD MORE */}
         <div className="tracking-segments">
           {hasBatches && (
             <button
@@ -3969,6 +3156,7 @@ export const ItemMaster: React.FC = () => {
               Expiry
             </button>
           )}
+          {/* UI Governance Note: Maximum 3 sub-views reached. Use collapsible sections or modals for additional views. */}
         </div>
 
         {/* Render sub-view content */}
@@ -4344,10 +3532,473 @@ export const ItemMaster: React.FC = () => {
     );
   };
 
-  const renderLocationsView = () => {
+  const renderEditView = () => {
     if (!selectedItem) return null;
 
-    // Group stock by location
+    return (
+      <div className="edit-view">
+        <div className="edit-form-sections">
+          {/* Basic Info Section */}
+          <div className="form-section">
+            <h3 className="form-section-title">Basic Information</h3>
+            <div className="form-group">
+              <label>SKU</label>
+              <Input value={selectedItem.sku} disabled style={{ backgroundColor: '#f5f5f5' }} />
+              <div className="field-helper-text">SKU cannot be changed after creation</div>
+            </div>
+            <div className="form-group">
+              <label>Barcode</label>
+              <Input
+                value={(selectedItem as any).barcode || ''}
+                onChange={(e) => {
+                  setFormData({ ...formData, barcode: e.target.value });
+                  setHasUnsavedChanges(true);
+                }}
+                placeholder="Optional barcode"
+              />
+            </div>
+            <div className="form-group">
+              <label>Name *</label>
+              <Input
+                value={formData.name}
+                onChange={(e) => {
+                  setFormData({ ...formData, name: e.target.value });
+                  setHasUnsavedChanges(true);
+                }}
+                placeholder="Item Name"
+              />
+            </div>
+            <div className="form-group">
+              <label>Description</label>
+              <textarea
+                value={formData.description}
+                onChange={(e) => {
+                  setFormData({ ...formData, description: e.target.value });
+                  setHasUnsavedChanges(true);
+                }}
+                rows={4}
+                placeholder="Item description"
+                maxLength={2000}
+              />
+              <div className="field-helper-text">
+                {formData.description?.length || 0} / 2000 characters
+              </div>
+            </div>
+            <div className="form-row">
+              <div className="form-group">
+                <label>Category</label>
+                <Input
+                  value={formData.category}
+                  onChange={(e) => {
+                    setFormData({ ...formData, category: e.target.value });
+                    setHasUnsavedChanges(true);
+                  }}
+                  placeholder="Category"
+                  list="categories-list"
+                />
+                <datalist id="categories-list">
+                  {categories.map((cat) => (
+                    <option key={cat} value={cat} />
+                  ))}
+                </datalist>
+              </div>
+              <div className="form-group">
+                <label>Unit of Measure *</label>
+                <Select
+                  value={formData.unitOfMeasure}
+                  onChange={(e) => {
+                    setFormData({ ...formData, unitOfMeasure: e.target.value });
+                    setHasUnsavedChanges(true);
+                  }}
+                >
+                  <option value="pcs">pcs (Pieces)</option>
+                  <option value="kg">kg (Kilograms)</option>
+                  <option value="g">g (Grams)</option>
+                  <option value="l">l (Liters)</option>
+                  <option value="ml">ml (Milliliters)</option>
+                  <option value="m">m (Meters)</option>
+                  <option value="cm">cm (Centimeters)</option>
+                  <option value="box">box (Boxes)</option>
+                  <option value="pack">pack (Packs)</option>
+                  <option value="carton">carton (Cartons)</option>
+                </Select>
+              </div>
+            </div>
+          </div>
+
+          {/* Images Section */}
+          <div className="form-section">
+            <h3 className="form-section-title">Product Images</h3>
+            <ImageUpload
+              images={formData.images || []}
+              onChange={(images) => {
+                setFormData({ ...formData, images });
+                setHasUnsavedChanges(true);
+              }}
+              maxImages={10}
+              folder="inventory"
+              disabled={loading}
+            />
+          </div>
+
+          {/* Dimensions & Weight Section */}
+          <div className="form-section">
+            <h3 className="form-section-title">Dimensions & Weight</h3>
+            <div className="dimensions-grid">
+              <div className="form-group">
+                <label>Length</label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={formData.dimensions?.length || ''}
+                  onChange={(e) => {
+                    const value = e.target.value ? parseFloat(e.target.value) : undefined;
+                    setFormData({
+                      ...formData,
+                      dimensions: {
+                        ...formData.dimensions,
+                        length: value || 0,
+                        width: formData.dimensions?.width || 0,
+                        height: formData.dimensions?.height || 0,
+                        unit: formData.dimensions?.unit || 'cm',
+                      } as any,
+                    });
+                    setHasUnsavedChanges(true);
+                  }}
+                />
+              </div>
+              <div className="form-group">
+                <label>Width</label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={formData.dimensions?.width || ''}
+                  onChange={(e) => {
+                    const value = e.target.value ? parseFloat(e.target.value) : undefined;
+                    setFormData({
+                      ...formData,
+                      dimensions: {
+                        ...formData.dimensions,
+                        length: formData.dimensions?.length || 0,
+                        width: value || 0,
+                        height: formData.dimensions?.height || 0,
+                        unit: formData.dimensions?.unit || 'cm',
+                      } as any,
+                    });
+                    setHasUnsavedChanges(true);
+                  }}
+                />
+              </div>
+              <div className="form-group">
+                <label>Height</label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={formData.dimensions?.height || ''}
+                  onChange={(e) => {
+                    const value = e.target.value ? parseFloat(e.target.value) : undefined;
+                    setFormData({
+                      ...formData,
+                      dimensions: {
+                        ...formData.dimensions,
+                        length: formData.dimensions?.length || 0,
+                        width: formData.dimensions?.width || 0,
+                        height: value || 0,
+                        unit: formData.dimensions?.unit || 'cm',
+                      } as any,
+                    });
+                    setHasUnsavedChanges(true);
+                  }}
+                />
+              </div>
+              <div className="form-group">
+                <label>Unit</label>
+                <Select
+                  value={formData.dimensions?.unit || 'cm'}
+                  onChange={(e) => {
+                    setFormData({
+                      ...formData,
+                      dimensions: {
+                        ...formData.dimensions,
+                        length: formData.dimensions?.length || 0,
+                        width: formData.dimensions?.width || 0,
+                        height: formData.dimensions?.height || 0,
+                        unit: e.target.value,
+                      } as any,
+                    });
+                    setHasUnsavedChanges(true);
+                  }}
+                >
+                  <option value="cm">cm</option>
+                  <option value="m">m</option>
+                  <option value="inches">inches</option>
+                  <option value="ft">ft</option>
+                </Select>
+              </div>
+              <div className="form-group">
+                <label>Weight</label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={formData.weight?.value || ''}
+                  onChange={(e) => {
+                    const value = e.target.value ? parseFloat(e.target.value) : undefined;
+                    setFormData({
+                      ...formData,
+                      weight: {
+                        value: value || 0,
+                        unit: formData.weight?.unit || 'kg',
+                      } as any,
+                    });
+                    setHasUnsavedChanges(true);
+                  }}
+                  placeholder="0.00"
+                />
+              </div>
+              <div className="form-group">
+                <label>Weight Unit</label>
+                <Select
+                  value={formData.weight?.unit || 'kg'}
+                  onChange={(e) => {
+                    setFormData({
+                      ...formData,
+                      weight: {
+                        value: formData.weight?.value || 0,
+                        unit: e.target.value,
+                      } as any,
+                    });
+                    setHasUnsavedChanges(true);
+                  }}
+                >
+                  <option value="kg">kg</option>
+                  <option value="g">g</option>
+                  <option value="lbs">lbs</option>
+                  <option value="oz">oz</option>
+                </Select>
+              </div>
+            </div>
+          </div>
+
+          {/* Industry Section */}
+          <div className="form-section">
+            <h3 className="form-section-title">Industry Type</h3>
+            <div className="form-group">
+              <label>Industry Type *</label>
+              <Select
+                value={formData.industryFlags.industryType}
+                onChange={(e) => {
+                  setFormData({
+                    ...formData,
+                    industryFlags: {
+                      ...formData.industryFlags,
+                      industryType: e.target.value as IndustryType,
+                    },
+                  });
+                  setHasUnsavedChanges(true);
+                }}
+              >
+                {Object.values(IndustryType).map((type) => (
+                  <option key={type} value={type}>
+                    {type.charAt(0).toUpperCase() + type.slice(1)}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          </div>
+
+          <div className="form-section">
+            <h3 className="form-section-title">Industry Flags</h3>
+            <div className="industry-flags-grid">
+              <div className="form-group checkbox-enhanced">
+                <label className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={formData.industryFlags.isPerishable}
+                    onChange={(e) => {
+                      const newFlags = {
+                        ...formData.industryFlags,
+                        isPerishable: e.target.checked,
+                      };
+                      if (e.target.checked && formData.industryFlags.requiresBatchTracking && !formData.industryFlags.hasExpiryDate) {
+                        newFlags.hasExpiryDate = true;
+                      }
+                      setFormData({ ...formData, industryFlags: newFlags });
+                      setHasUnsavedChanges(true);
+                    }}
+                  />
+                  <span className="checkbox-text">
+                    <strong>Perishable</strong>
+                    <span className="checkbox-description">Item has limited shelf life and degrades over time</span>
+                  </span>
+                </label>
+              </div>
+              <div className="form-group checkbox-enhanced">
+                <label className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={formData.industryFlags.requiresBatchTracking}
+                    disabled={formData.industryFlags.requiresSerialTracking}
+                    onChange={(e) => {
+                      const newFlags = {
+                        ...formData.industryFlags,
+                        requiresBatchTracking: e.target.checked,
+                      };
+                      if (e.target.checked && formData.industryFlags.isPerishable && !formData.industryFlags.hasExpiryDate) {
+                        newFlags.hasExpiryDate = true;
+                      }
+                      setFormData({ ...formData, industryFlags: newFlags });
+                      setHasUnsavedChanges(true);
+                    }}
+                  />
+                  <span className="checkbox-text">
+                    <strong>Requires Batch Tracking</strong>
+                    <span className="checkbox-description">Track items by batch/lot number for traceability</span>
+                  </span>
+                </label>
+              </div>
+              <div className="form-group checkbox-enhanced">
+                <label className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={formData.industryFlags.requiresSerialTracking}
+                    disabled={formData.industryFlags.requiresBatchTracking}
+                    onChange={(e) => {
+                      const newFlags = {
+                        ...formData.industryFlags,
+                        requiresSerialTracking: e.target.checked,
+                      };
+                      if (e.target.checked && formData.industryFlags.requiresBatchTracking) {
+                        newFlags.requiresBatchTracking = false;
+                      }
+                      setFormData({ ...formData, industryFlags: newFlags });
+                      setHasUnsavedChanges(true);
+                    }}
+                  />
+                  <span className="checkbox-text">
+                    <strong>Requires Serial Tracking</strong>
+                    <span className="checkbox-description">Track items by unique serial number (one per unit)</span>
+                  </span>
+                </label>
+              </div>
+              <div className="form-group checkbox-enhanced">
+                <label className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={formData.industryFlags.hasExpiryDate}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        industryFlags: {
+                          ...formData.industryFlags,
+                          hasExpiryDate: e.target.checked,
+                        },
+                      })
+                    }
+                  />
+                  <span className="checkbox-text">
+                    <strong>Has Expiry Date</strong>
+                    <span className="checkbox-description">Item has an expiration date that must be monitored</span>
+                  </span>
+                </label>
+              </div>
+              <div className="form-group checkbox-enhanced">
+                <label className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={formData.industryFlags.isHighValue}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        industryFlags: {
+                          ...formData.industryFlags,
+                          isHighValue: e.target.checked,
+                        },
+                      })
+                    }
+                  />
+                  <span className="checkbox-text">
+                    <strong>High Value Item</strong>
+                    <span className="checkbox-description">Item has high monetary value requiring additional security</span>
+                  </span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          {/* Tags Section */}
+          <div className="form-section">
+            <h3 className="form-section-title">Tags</h3>
+            <div className="form-group">
+              <Input
+                value={(formData.tags || []).join(', ')}
+                onChange={(e) => {
+                  const tags = e.target.value
+                    .split(',')
+                    .map(tag => tag.trim())
+                    .filter(tag => tag.length > 0);
+                  setFormData({ ...formData, tags });
+                  setHasUnsavedChanges(true);
+                }}
+                placeholder="Enter tags separated by commas"
+              />
+              <div className="tags-hint">Separate tags with commas</div>
+              {formData.tags && formData.tags.length > 0 && (
+                <div className="tags-display">
+                  {formData.tags.map((tag, index) => (
+                    <span key={index} className="tag-chip">
+                      {tag}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newTags = formData.tags?.filter((_, i) => i !== index) || [];
+                          setFormData({ ...formData, tags: newTags });
+                          setHasUnsavedChanges(true);
+                        }}
+                        className="tag-remove"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="edit-form-actions">
+          <Button
+            variant="secondary"
+            onClick={() => {
+              if (hasUnsavedChanges) {
+                setPendingNavigation(() => () => {
+                  setItemSubTab('overview');
+                  handleEdit();
+                });
+                setShowUnsavedDialog(true);
+              } else {
+                setItemSubTab('overview');
+              }
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="primary"
+            onClick={handleUpdate}
+            disabled={loading}
+          >
+            {loading ? 'Saving...' : 'Save Changes'}
+          </Button>
+        </div>
+      </div>
+    );
+  };
+
+  const renderHistoryView = () => {
+    if (!selectedItem) return null;
+
+    // Group stock by location (from Locations tab - now consolidated here)
     const stockByLocation = stockData.reduce((acc, stock) => {
       const locId = stock.locationId;
       if (!acc[locId]) {
@@ -4365,116 +4016,115 @@ export const ItemMaster: React.FC = () => {
     }, {} as Record<string, { location: { id: string; code: string; name: string; type: string }; onHand: number; reserved: number; available: number }>);
 
     return (
-      <div className="locations-view">
-        <h4>Item Locations</h4>
-        {Object.keys(stockByLocation).length === 0 ? (
-          <EmptyState message="No locations found for this item" />
-        ) : (
-          <table className="locations-table">
-            <thead>
-              <tr>
-                <th>Location Code</th>
-                <th>Location Name</th>
-                <th>Type</th>
-                <th>On Hand</th>
-                <th>Reserved</th>
-                <th>Available</th>
-              </tr>
-            </thead>
-            <tbody>
-              {Object.values(stockByLocation).map((locStock) => (
-                <tr key={locStock.location.id}>
-                  <td>{locStock.location.code}</td>
-                  <td>{locStock.location.name}</td>
-                  <td>{locStock.location.type}</td>
-                  <td>{locStock.onHand}</td>
-                  <td>{locStock.reserved}</td>
-                  <td>{locStock.available}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
-    );
-  };
-
-  const renderHistoryView = () => {
-    if (!selectedItem) return null;
-
-    return (
       <div className="history-view">
-        <div className="history-filters">
-          <div className="filter-group">
-            <label>Date From</label>
-            <Input
-              type="date"
-              value={historyFilters.dateFrom}
-              onChange={(e) => setHistoryFilters({ ...historyFilters, dateFrom: e.target.value })}
-            />
-          </div>
-          <div className="filter-group">
-            <label>Date To</label>
-            <Input
-              type="date"
-              value={historyFilters.dateTo}
-              onChange={(e) => setHistoryFilters({ ...historyFilters, dateTo: e.target.value })}
-            />
-          </div>
-          <div className="filter-group">
-            <label>Movement Type</label>
-            <Select
-              value={historyFilters.movementType}
-              onChange={(e) => setHistoryFilters({ ...historyFilters, movementType: e.target.value })}
-            >
-              <option value="">All Types</option>
-              <option value="RECEIPT">Receipt</option>
-              <option value="ISSUE">Issue</option>
-              <option value="TRANSFER">Transfer</option>
-              <option value="ADJUSTMENT">Adjustment</option>
-            </Select>
-          </div>
-          <Button variant="ghost" onClick={() => {
-            setHistoryFilters({ dateFrom: '', dateTo: '', movementType: '', locationId: '' });
-          }}>
-            Clear Filters
-          </Button>
+        {/* Locations Section (consolidated from Locations tab) */}
+        <div className="history-section">
+          <h4>Item Locations</h4>
+          {Object.keys(stockByLocation).length === 0 ? (
+            <EmptyState message="No locations found for this item" />
+          ) : (
+            <table className="locations-table">
+              <thead>
+                <tr>
+                  <th>Location Code</th>
+                  <th>Location Name</th>
+                  <th>Type</th>
+                  <th>On Hand</th>
+                  <th>Reserved</th>
+                  <th>Available</th>
+                </tr>
+              </thead>
+              <tbody>
+                {Object.values(stockByLocation).map((locStock) => (
+                  <tr key={locStock.location.id}>
+                    <td>{locStock.location.code}</td>
+                    <td>{locStock.location.name}</td>
+                    <td>{locStock.location.type}</td>
+                    <td>{locStock.onHand}</td>
+                    <td>{locStock.reserved}</td>
+                    <td>{locStock.available}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
 
-        {historyData.length === 0 ? (
-          <EmptyState message="No movement history found for this item" />
-        ) : (
-          <table className="history-table">
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Movement Type</th>
-                <th>From Location</th>
-                <th>To Location</th>
-                <th>Quantity</th>
-                <th>Status</th>
-                <th>User</th>
-              </tr>
-            </thead>
-            <tbody>
-              {historyData.map((movement) => (
-                <tr key={movement.id}>
-                  <td>{new Date(movement.createdAt).toLocaleDateString()}</td>
-                  <td>{movement.movementType}</td>
-                  <td>{movement.fromLocation?.code || '-'}</td>
-                  <td>{movement.toLocation?.code || '-'}</td>
-                  <td>{movement.quantity}</td>
-                  <td>
-                    <span className={`status-${movement.status.toLowerCase()}`}>
-                      {movement.status}
-                    </span>
-                  </td>
-                  <td>{movement.createdBy?.name || movement.createdBy?.email || '-'}</td>
+        {/* Movement History Section */}
+        <div className="history-section">
+          <h4>Movement History</h4>
+          <div className="history-filters">
+            <div className="filter-group">
+              <label>Date From</label>
+              <Input
+                type="date"
+                value={historyFilters.dateFrom}
+                onChange={(e) => setHistoryFilters({ ...historyFilters, dateFrom: e.target.value })}
+              />
+            </div>
+            <div className="filter-group">
+              <label>Date To</label>
+              <Input
+                type="date"
+                value={historyFilters.dateTo}
+                onChange={(e) => setHistoryFilters({ ...historyFilters, dateTo: e.target.value })}
+              />
+            </div>
+            <div className="filter-group">
+              <label>Movement Type</label>
+              <Select
+                value={historyFilters.movementType}
+                onChange={(e) => setHistoryFilters({ ...historyFilters, movementType: e.target.value })}
+              >
+                <option value="">All Types</option>
+                <option value="RECEIPT">Receipt</option>
+                <option value="ISSUE">Issue</option>
+                <option value="TRANSFER">Transfer</option>
+                <option value="ADJUSTMENT">Adjustment</option>
+              </Select>
+            </div>
+            <Button variant="ghost" onClick={() => {
+              setHistoryFilters({ dateFrom: '', dateTo: '', movementType: '', locationId: '' });
+            }}>
+              Clear Filters
+            </Button>
+          </div>
+
+          {historyData.length === 0 ? (
+            <EmptyState message="No movement history found for this item" />
+          ) : (
+            <table className="history-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Movement Type</th>
+                  <th>From Location</th>
+                  <th>To Location</th>
+                  <th>Quantity</th>
+                  <th>Status</th>
+                  <th>User</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+              </thead>
+              <tbody>
+                {historyData.map((movement) => (
+                  <tr key={movement.id}>
+                    <td>{new Date(movement.createdAt).toLocaleDateString()}</td>
+                    <td>{movement.movementType}</td>
+                    <td>{movement.fromLocation?.code || '-'}</td>
+                    <td>{movement.toLocation?.code || '-'}</td>
+                    <td>{movement.quantity}</td>
+                    <td>
+                      <span className={`status-${movement.status.toLowerCase()}`}>
+                        {movement.status}
+                      </span>
+                    </td>
+                    <td>{movement.createdBy?.name || movement.createdBy?.email || '-'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
       </div>
     );
   };
@@ -4492,12 +4142,27 @@ export const ItemMaster: React.FC = () => {
         
         <div className="item-master-details-content">
           {/* Sub-tabs for item details */}
+          {/* UI Governance: Maximum 6 sub-tabs enforced via ItemSubTab type - DO NOT ADD MORE */}
+          {/* Current tabs: Overview, Edit, Variants (conditional), Stock, Tracking (conditional), History */}
+          {/* If you need to add another tab, you've reached the maximum. Use modals, collapsible sections, or separate modules instead. */}
           <div className="item-sub-tabs">
           <button
             className={`item-sub-tab ${itemSubTab === 'overview' ? 'active' : ''}`}
             onClick={() => setItemSubTab('overview')}
           >
             Overview
+          </button>
+          <button
+            className={`item-sub-tab ${itemSubTab === 'edit' ? 'active' : ''}`}
+            onClick={() => setItemSubTab('edit')}
+          >
+            Edit
+          </button>
+          <button
+            className={`item-sub-tab ${itemSubTab === 'variants' ? 'active' : ''}`}
+            onClick={() => setItemSubTab('variants')}
+          >
+            Variants
           </button>
           <button
             className={`item-sub-tab ${itemSubTab === 'stock' ? 'active' : ''}`}
@@ -4516,25 +4181,13 @@ export const ItemMaster: React.FC = () => {
             </button>
           )}
           <button
-            className={`item-sub-tab ${itemSubTab === 'locations' ? 'active' : ''}`}
-            onClick={() => setItemSubTab('locations')}
-          >
-            Locations
-          </button>
-          <button
             className={`item-sub-tab ${itemSubTab === 'history' ? 'active' : ''}`}
             onClick={() => setItemSubTab('history')}
           >
             History
           </button>
-          {selectedItem.hasVariants && (
-            <button
-              className={`item-sub-tab ${itemSubTab === 'variants' ? 'active' : ''}`}
-              onClick={() => setItemSubTab('variants')}
-            >
-              Variants
-            </button>
-          )}
+          {/* UI Governance Note: If you need to add another tab, you've reached the maximum.
+              Use modals, collapsible sections, or separate modules instead. */}
         </div>
 
         <div className="details-content">
@@ -4542,20 +4195,25 @@ export const ItemMaster: React.FC = () => {
           {/* Sub-tab content */}
           <div className="item-sub-content">
             {itemSubTab === 'overview' && renderOverviewView()}
-            {itemSubTab === 'stock' && renderStockView()}
-            {itemSubTab === 'tracking' && renderTrackingView()}
-            {itemSubTab === 'locations' && renderLocationsView()}
-            {itemSubTab === 'history' && renderHistoryView()}
-            {itemSubTab === 'variants' && selectedItem.hasVariants && selectedItemId && (
+            {itemSubTab === 'edit' && renderEditView()}
+            {itemSubTab === 'variants' && selectedItemId && (
               <VariantManagement
                 itemId={selectedItemId}
                 itemName={selectedItem.name}
+                selectedVariantId={selectedVariantId || undefined}
                 onVariantChange={async () => {
                   await loadVariants(selectedItemId);
                   await loadVariantStock(selectedItemId);
                 }}
+                onVariantSelect={(variantId) => {
+                  setSelectedVariantId(variantId);
+                  setSearchParams({ itemId: selectedItemId, variantId }, { replace: true });
+                }}
               />
             )}
+            {itemSubTab === 'stock' && renderStockView()}
+            {itemSubTab === 'tracking' && renderTrackingView()}
+            {itemSubTab === 'history' && renderHistoryView()}
             </div>
           </div>
         </div>
@@ -4569,19 +4227,30 @@ export const ItemMaster: React.FC = () => {
       {viewMode === 'edit' && renderForm()}
       {(viewMode === 'list' || viewMode === 'details') && (
         <div className={`item-master-container ${selectedItemId && viewMode === 'details' ? 'split-view' : 'full-view'}`}>
-          <div className="item-master-list-panel">
-            {renderList()}
-          </div>
-          {viewMode === 'details' && selectedItemId && (
-            <div className="item-master-details-panel">
-              {selectedItem ? (
-                renderDetails()
-              ) : (
-                <div className="item-details-placeholder">
-                  <h3>No Item Selected</h3>
-                  <p>Select an item from the list to view details</p>
-                </div>
-              )}
+          {selectedItemId && viewMode === 'details' ? (
+            <ResizableSplitPane
+              left={renderList()}
+              right={
+                selectedItem ? (
+                  renderDetails()
+                ) : (
+                  <div className="item-details-placeholder">
+                    <h3>No Item Selected</h3>
+                    <p>Select an item from the list to view details</p>
+                  </div>
+                )
+              }
+              leftMin={200}
+              leftMaxPercent={60}
+              rightMin={400}
+              storageKey="item-master-split-ratio"
+              defaultLeftPercent={60}
+              leftClassName="item-master-list-panel"
+              rightClassName="item-master-details-panel"
+            />
+          ) : (
+            <div className="item-master-list-panel">
+              {renderList()}
             </div>
           )}
         </div>

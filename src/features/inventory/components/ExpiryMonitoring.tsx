@@ -42,12 +42,7 @@ export const ExpiryMonitoring: React.FC = () => {
     reason: '',
   });
 
-  useEffect(() => {
-    loadAlerts();
-    loadItems();
-    loadLocations();
-  }, [daysAhead]);
-
+  // Load functions - defined before useEffects to avoid TDZ errors
   const loadAlerts = async () => {
     setLoading(true);
     setError(null);
@@ -80,6 +75,12 @@ export const ExpiryMonitoring: React.FC = () => {
       logger.error('[ExpiryMonitoring] Failed to load locations', err);
     }
   };
+
+  useEffect(() => {
+    loadAlerts();
+    loadItems();
+    loadLocations();
+  }, [daysAhead]);
 
   const handleDispose = async (reason?: string) => {
     if (!itemToDispose || !reason) return;

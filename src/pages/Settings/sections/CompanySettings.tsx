@@ -323,7 +323,7 @@ export const CompanySettings: React.FC = () => {
                 className="form-input"
                 value={form.displayName || ''}
                 onChange={(e) => handleInputChange('displayName', e.target.value)}
-                placeholder="Company OS"
+                placeholder="Busiman"
               />
               <small className="form-help">
                 This name appears in the application header and login screens.
@@ -337,7 +337,7 @@ export const CompanySettings: React.FC = () => {
                 className="form-input"
                 value={form.legalName || ''}
                 onChange={(e) => handleInputChange('legalName', e.target.value)}
-                placeholder="Company OS Pvt. Ltd."
+                placeholder="Busiman Pvt. Ltd."
               />
             </div>
 
@@ -348,7 +348,7 @@ export const CompanySettings: React.FC = () => {
                 className="form-input"
                 value={form.website || ''}
                 onChange={(e) => handleInputChange('website', e.target.value)}
-                placeholder="https://companyos.com"
+                placeholder="https://busiman.com"
               />
             </div>
 
@@ -359,7 +359,7 @@ export const CompanySettings: React.FC = () => {
                 className="form-input"
                 value={form.supportEmail || ''}
                 onChange={(e) => handleInputChange('supportEmail', e.target.value)}
-                placeholder="support@companyos.com"
+                placeholder="support@busiman.com"
               />
             </div>
 

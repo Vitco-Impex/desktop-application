@@ -13,7 +13,7 @@ class ProxyClientService {
    * TODO: Implement mDNS/Bonjour discovery
    */
   async discoverProxies(): Promise<Array<{ ip: string; port: number }>> {
-    // Placeholder - would use mDNS/Bonjour to discover _companyos-attendance-proxy._tcp
+    // Placeholder - would use mDNS/Bonjour to discover _busiman-attendance-proxy._tcp
     // For now, return empty array (fallback to main server)
     return [];
   }

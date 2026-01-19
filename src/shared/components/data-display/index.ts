@@ -13,3 +13,6 @@ export type { LoadingStateProps } from './LoadingState';
 
 export { ErrorState } from './ErrorState';
 export type { ErrorStateProps } from './ErrorState';
+
+export { DataTable } from './DataTable';
+export type { DataTableProps, ColumnDef, FilterConfig } from './DataTable';

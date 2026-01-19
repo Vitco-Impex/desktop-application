@@ -43,18 +43,7 @@ export const StockCounting: React.FC = () => {
     varianceReason: '',
   });
 
-  useEffect(() => {
-    loadCounts();
-    loadItems();
-    loadLocations();
-  }, []);
-
-  useEffect(() => {
-    if (selectedCountId && viewMode === 'details') {
-      loadCountDetails();
-    }
-  }, [selectedCountId, viewMode]);
-
+  // Load functions - defined before useEffects to avoid TDZ errors
   const loadCounts = async () => {
     setLoading(true);
     setError(null);
@@ -107,6 +96,18 @@ export const StockCounting: React.FC = () => {
       logger.error('[StockCounting] Failed to load locations', err);
     }
   };
+
+  useEffect(() => {
+    loadCounts();
+    loadItems();
+    loadLocations();
+  }, []);
+
+  useEffect(() => {
+    if (selectedCountId && viewMode === 'details') {
+      loadCountDetails();
+    }
+  }, [selectedCountId, viewMode]);
 
   const handleCreate = async () => {
     setError(null);

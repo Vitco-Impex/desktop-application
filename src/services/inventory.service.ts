@@ -55,6 +55,7 @@ export interface IndustryFlags {
   requiresBatchTracking: boolean;
   requiresSerialTracking: boolean;
   hasExpiryDate: boolean;
+  isHighValue: boolean;
   industryType: IndustryType;
 }
 
@@ -70,9 +71,6 @@ export interface InventoryItem {
   branchId: string;
   hasVariants: boolean; // Flag indicating if item has variants
   isActive: boolean;
-  minStockLevel?: number;
-  maxStockLevel?: number;
-  reorderPoint?: number;
   // Image fields
   images?: Array<{
     url: string;
@@ -80,14 +78,6 @@ export interface InventoryItem {
     isPrimary: boolean;
     uploadedAt: string;
   }>;
-  // Pricing fields
-  costPrice?: number;
-  sellingPrice?: number;
-  margin?: number;
-  // Supplier fields
-  supplierId?: string;
-  supplierName?: string;
-  supplierCode?: string;
   // Dimensions and weight
   dimensions?: {
     length: number;
@@ -131,9 +121,6 @@ export interface InventoryVariant {
     isPrimary: boolean;
     uploadedAt: string;
   }>;
-  // Pricing override fields
-  costPriceOverride?: number;
-  sellingPriceOverride?: number;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -153,9 +140,6 @@ export interface CreateVariantRequest {
     publicId: string;
     isPrimary: boolean;
   }>;
-  // Pricing override fields
-  costPriceOverride?: number;
-  sellingPriceOverride?: number;
 }
 
 export interface UpdateVariantRequest {
@@ -172,9 +156,6 @@ export interface UpdateVariantRequest {
     publicId: string;
     isPrimary: boolean;
   }>;
-  // Pricing override fields
-  costPriceOverride?: number;
-  sellingPriceOverride?: number;
 }
 
 export interface AttributeField {
@@ -205,23 +186,12 @@ export interface CreateInventoryItemRequest {
   unitOfMeasure: string;
   unitConversions?: UnitConversion[];
   industryFlags: IndustryFlags;
-  minStockLevel?: number;
-  maxStockLevel?: number;
-  reorderPoint?: number;
   // Image fields
   images?: Array<{
     url: string;
     publicId: string;
     isPrimary: boolean;
   }>;
-  // Pricing fields
-  costPrice?: number;
-  sellingPrice?: number;
-  margin?: number;
-  // Supplier fields
-  supplierId?: string;
-  supplierName?: string;
-  supplierCode?: string;
   // Dimensions and weight
   dimensions?: {
     length: number;
@@ -245,9 +215,6 @@ export interface UpdateInventoryItemRequest {
   unitOfMeasure?: string;
   unitConversions?: UnitConversion[];
   industryFlags?: Partial<IndustryFlags>;
-  minStockLevel?: number;
-  maxStockLevel?: number;
-  reorderPoint?: number;
   isActive?: boolean;
   // Image fields
   images?: Array<{
@@ -255,14 +222,6 @@ export interface UpdateInventoryItemRequest {
     publicId: string;
     isPrimary: boolean;
   }>;
-  // Pricing fields
-  costPrice?: number;
-  sellingPrice?: number;
-  margin?: number;
-  // Supplier fields
-  supplierId?: string;
-  supplierName?: string;
-  supplierCode?: string;
   // Dimensions and weight
   dimensions?: {
     length: number;
@@ -294,6 +253,12 @@ export interface Location {
     maxItems?: number;
   };
   temperatureZone?: string;
+  notes?: string;
+  allowStock?: boolean;
+  allowPicking?: boolean;
+  allowReceiving?: boolean;
+  minTemp?: number;
+  maxTemp?: number;
   parentLocation?: {
     id: string;
     code: string;
@@ -337,6 +302,12 @@ export interface UpdateLocationRequest {
     maxItems?: number;
   };
   temperatureZone?: string;
+  notes?: string;
+  allowStock?: boolean;
+  allowPicking?: boolean;
+  allowReceiving?: boolean;
+  minTemp?: number;
+  maxTemp?: number;
   isActive?: boolean;
 }
 
@@ -392,15 +363,19 @@ class InventoryService {
   // Locations
   async getAllLocations(filters?: {
     type?: LocationType;
-    parentLocationId?: string;
+    parentLocationId?: string | null;
     isActive?: boolean;
   }): Promise<Location[]> {
     const params = new URLSearchParams();
     if (filters?.type) {
       params.append('type', filters.type);
     }
-    if (filters?.parentLocationId) {
-      params.append('parentLocationId', filters.parentLocationId);
+    if (filters?.parentLocationId !== undefined) {
+      if (filters.parentLocationId === null) {
+        params.append('parentLocationId', 'null');
+      } else {
+        params.append('parentLocationId', filters.parentLocationId);
+      }
     }
     if (filters?.isActive !== undefined) {
       params.append('isActive', filters.isActive.toString());
@@ -423,6 +398,32 @@ class InventoryService {
   async getLocationPath(locationId: string): Promise<Location[]> {
     const response = await api.get(`/inventory/locations/${locationId}/path`);
     return extractApiData<Location[]>(response);
+  }
+
+  async getLocationChildCount(parentId: string): Promise<{ count: number }> {
+    const params = new URLSearchParams();
+    params.append('parentId', parentId);
+    const response = await api.get(`/inventory/locations/child-count?${params.toString()}`);
+    return extractApiData<{ count: number }>(response);
+  }
+
+  async getLocationCapacityUsage(locationId: string): Promise<{
+    usedWeight: number;
+    usedVolume: number;
+    usedItems: number;
+    maxWeight?: number;
+    maxVolume?: number;
+    maxItems?: number;
+  }> {
+    const response = await api.get(`/inventory/locations/${locationId}/capacity-usage`);
+    return extractApiData<{
+      usedWeight: number;
+      usedVolume: number;
+      usedItems: number;
+      maxWeight?: number;
+      maxVolume?: number;
+      maxItems?: number;
+    }>(response);
   }
 
   async createLocation(data: CreateLocationRequest): Promise<Location> {
@@ -449,6 +450,7 @@ class InventoryService {
     itemId?: string;
     fromLocationId?: string;
     toLocationId?: string;
+    locationId?: string; // Matches either fromLocationId or toLocationId
     movementType?: MovementType;
     status?: MovementStatus;
     dateFrom?: string;
@@ -458,6 +460,7 @@ class InventoryService {
     if (filters?.itemId) params.append('itemId', filters.itemId);
     if (filters?.fromLocationId) params.append('fromLocationId', filters.fromLocationId);
     if (filters?.toLocationId) params.append('toLocationId', filters.toLocationId);
+    if (filters?.locationId) params.append('locationId', filters.locationId);
     if (filters?.movementType) params.append('movementType', filters.movementType);
     if (filters?.status) params.append('status', filters.status);
     if (filters?.dateFrom) params.append('dateFrom', filters.dateFrom);
@@ -471,12 +474,12 @@ class InventoryService {
     return extractApiData<StockMovementResponse>(response);
   }
 
-  async approveMovement(id: string, approved: boolean, rejectionReason?: string): Promise<StockMovementResponse> {
+  async approveMovement(id: string, approved: boolean, rejectionReason?: string): Promise<StockMovementResponse | MovementDocumentResponse> {
     const response = await api.post(`/inventory/movements/${id}/approve`, {
       approved,
       rejectionReason,
     });
-    return extractApiData<StockMovementResponse>(response);
+    return extractApiData<StockMovementResponse | MovementDocumentResponse>(response);
   }
 
   async reverseMovement(id: string, reversalReason: string): Promise<StockMovementResponse> {
@@ -484,6 +487,68 @@ class InventoryService {
       reversalReason,
     });
     return extractApiData<StockMovementResponse>(response);
+  }
+
+  // Movement Documents (Batch)
+  async createMovementBatch(data: CreateMovementBatchRequest): Promise<MovementDocumentResponse> {
+    const response = await api.post('/inventory/movements/batch', data);
+    return extractApiData<MovementDocumentResponse>(response);
+  }
+
+  async getMovementDocument(id: string): Promise<MovementDocumentResponse> {
+    const response = await api.get(`/inventory/movements/documents/${id}`);
+    return extractApiData<MovementDocumentResponse>(response);
+  }
+
+  async getAllMovementDocuments(filters?: {
+    movementType?: MovementType;
+    status?: MovementStatus;
+    createdBy?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    myPendingApprovals?: boolean;
+  }): Promise<MovementDocumentResponse[]> {
+    const params = new URLSearchParams();
+    if (filters?.movementType) params.append('movementType', filters.movementType);
+    if (filters?.status) params.append('status', filters.status);
+    if (filters?.createdBy) params.append('createdBy', filters.createdBy);
+    if (filters?.dateFrom) params.append('dateFrom', filters.dateFrom);
+    if (filters?.dateTo) params.append('dateTo', filters.dateTo);
+    if (filters?.myPendingApprovals) params.append('myPendingApprovals', 'true');
+    const response = await api.get(`/inventory/movements/documents?${params.toString()}`);
+    return extractApiData<MovementDocumentResponse[]>(response);
+  }
+
+  // Drafts
+  async saveDraft(data: CreateMovementBatchRequest): Promise<MovementDocumentResponse> {
+    const response = await api.post('/inventory/movements/draft', data);
+    return extractApiData<MovementDocumentResponse>(response);
+  }
+
+  async updateDraft(id: string, data: Partial<CreateMovementBatchRequest>): Promise<MovementDocumentResponse> {
+    const response = await api.put(`/inventory/movements/draft/${id}`, data);
+    return extractApiData<MovementDocumentResponse>(response);
+  }
+
+  async submitDraft(id: string): Promise<MovementDocumentResponse> {
+    const response = await api.post(`/inventory/movements/draft/${id}/submit`, {});
+    return extractApiData<MovementDocumentResponse>(response);
+  }
+
+  async getDrafts(): Promise<MovementDocumentResponse[]> {
+    const response = await api.get('/inventory/movements/drafts');
+    return extractApiData<MovementDocumentResponse[]>(response);
+  }
+
+  // Reason Codes
+  async getReasonCodes(): Promise<Array<{ code: string; name: string; category: string }>> {
+    const response = await api.get('/inventory/reason-codes');
+    return extractApiData<Array<{ code: string; name: string; category: string }>>(response);
+  }
+
+  async getReasonCodesByCategory(category: string): Promise<Array<{ code: string; name: string; category: string }>> {
+    const response = await api.get(`/inventory/reason-codes/category/${category}`);
+    return extractApiData<Array<{ code: string; name: string; category: string }>>(response);
   }
 
   // Stock
@@ -1124,6 +1189,80 @@ export interface CreateStockMovementRequest {
   attachments?: Array<{ url: string; type: string; uploadedAt: string }>;
 }
 
+export interface MovementLineRequest {
+  itemId: string;
+  variantId?: string;
+  fromLocationId?: string;
+  toLocationId?: string;
+  quantity: number;
+  unitOfMeasure?: string;
+  batchNumber?: string;
+  serialNumbers?: string[];
+  manufacturingDate?: string;
+  expiryDate?: string;
+  lineReasonCode?: string;
+  serialAttributes?: Record<string, Record<string, any>>;
+}
+
+export interface CreateMovementBatchRequest {
+  movementType: MovementType;
+  defaultFromLocationId?: string;
+  defaultToLocationId?: string;
+  reasonCode: string;
+  reasonDescription?: string;
+  documentNotes?: string;
+  requiresApproval?: boolean;
+  lines: MovementLineRequest[];
+}
+
+export interface MovementLineResponse {
+  id: string;
+  documentId: string;
+  lineNo: number;
+  itemId: string;
+  variantId?: string;
+  variant?: { id: string; code: string; name: string };
+  item?: { id: string; sku: string; name: string };
+  fromLocationId?: string;
+  fromLocation?: { id: string; code: string; name: string };
+  toLocationId?: string;
+  toLocation?: { id: string; code: string; name: string };
+  quantity: number;
+  unitOfMeasure: string;
+  batchNumber?: string;
+  serialNumbers?: string[];
+  manufacturingDate?: string;
+  expiryDate?: string;
+  lineReasonCode?: string;
+  lineStatus: string;
+  reversedLineId?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MovementDocumentResponse {
+  id: string;
+  movementNumber: string;
+  movementType: MovementType;
+  status: MovementStatus;
+  defaultFromLocationId?: string;
+  defaultFromLocation?: { id: string; code: string; name: string };
+  defaultToLocationId?: string;
+  defaultToLocation?: { id: string; code: string; name: string };
+  reasonCode: string;
+  reasonDescription?: string;
+  documentNotes?: string;
+  requiresApproval: boolean;
+  approvedBy?: string;
+  approvedAt?: string;
+  createdBy: { id: string; name: string; email: string };
+  lines: MovementLineResponse[];
+  totalLines: number;
+  totalQuantity: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface StockMovementResponse {
   id: string;
   movementNumber: string;
@@ -1192,6 +1331,12 @@ export interface StockByLocation {
   item: {
     id: string;
     sku: string;
+    name: string;
+  };
+  variantId?: string;
+  variant?: {
+    id: string;
+    code: string;
     name: string;
   };
   batchNumber?: string;

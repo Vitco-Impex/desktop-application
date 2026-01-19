@@ -1,6 +1,6 @@
-# Company OS Desktop Application
+# Busiman Desktop Application
 
-A desktop application built with Electron and React for the Company OS system.
+A desktop application built with Electron and React for the Busiman system.
 
 ## Features
 

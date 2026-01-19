@@ -186,7 +186,7 @@ function createTray(): void {
   // Create context menu
   const contextMenu = Menu.buildFromTemplate([
     {
-      label: 'Show Company OS Desktop',
+      label: 'Show Busiman Desktop',
       click: () => {
         if (mainWindow) {
           mainWindow.show();
@@ -230,7 +230,7 @@ function createTray(): void {
     },
   ]);
 
-  tray.setToolTip('Company OS Desktop');
+  tray.setToolTip('Busiman Desktop');
   tray.setContextMenu(contextMenu);
 
   // Double-click to show window
@@ -277,7 +277,7 @@ function setupAutoStart(): void {
     app.setLoginItemSettings({
       openAtLogin: autoStartEnabled,
       openAsHidden: true, // Start minimized to tray
-      name: 'Company OS Desktop',
+      name: 'Busiman Desktop',
       args: ['--hidden'], // Hidden flag for startup
     });
   } catch (error) {
@@ -1120,7 +1120,7 @@ if (!gotTheLock) {
 
       // Set app user model ID for Windows (helps with taskbar icon)
       if (process.platform === 'win32') {
-        app.setAppUserModelId('com.companyos.desktop');
+        app.setAppUserModelId('com.busiman.desktop');
       }
     }
 

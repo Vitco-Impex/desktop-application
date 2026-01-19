@@ -1,0 +1,154 @@
+.movement-list {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.movement-list-toolbar {
+  padding: 16px;
+  border-bottom: 1px solid #e0e0e0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.movement-list-filters {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.filter-bar-expanded {
+  padding: 16px;
+  background-color: #f5f5f5;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.filter-row {
+  display: flex;
+  gap: 16px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.filter-group label {
+  font-size: 12px;
+  font-weight: 500;
+  color: #666;
+}
+
+.movement-list-table {
+  flex: 1;
+  overflow: auto;
+}
+
+.movement-list-table table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.movement-list-table thead {
+  position: sticky;
+  top: 0;
+  background-color: #f5f5f5;
+  z-index: 10;
+}
+
+.movement-list-table th {
+  padding: 12px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  color: #666;
+  border-bottom: 2px solid #e0e0e0;
+}
+
+.movement-list-table td {
+  padding: 12px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.movement-row {
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.movement-row:hover {
+  background-color: #f9f9f9;
+}
+
+.movement-row.selected {
+  background-color: #e3f2fd;
+}
+
+.movement-number-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.expand-icon {
+  cursor: pointer;
+  user-select: none;
+  transition: transform 0.2s;
+  color: #666;
+}
+
+.expand-icon.expanded {
+  transform: rotate(90deg);
+}
+
+.expanded-content {
+  background-color: #f9f9f9;
+  padding: 16px;
+}
+
+.expanded-lines-preview {
+  margin-left: 24px;
+}
+
+.expanded-lines-preview table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 8px;
+}
+
+.expanded-lines-preview th,
+.expanded-lines-preview td {
+  padding: 8px;
+  font-size: 12px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.status-pending,
+.status-draft {
+  color: #ff9800;
+}
+
+.status-approved,
+.status-completed {
+  color: #4caf50;
+}
+
+.status-rejected {
+  color: #f44336;
+}
+
+.status-reversed {
+  color: #9e9e9e;
+}
+
+.error-message {
+  padding: 12px;
+  background-color: #ffebee;
+  color: #c62828;
+  border-radius: 4px;
+  margin: 16px;
+}

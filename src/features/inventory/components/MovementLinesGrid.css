@@ -1,0 +1,134 @@
+.movement-lines-grid {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.lines-grid-toolbar {
+  padding: 12px;
+  border-bottom: 1px solid #e0e0e0;
+  display: flex;
+  gap: 8px;
+}
+
+.lines-grid-container {
+  flex: 1;
+  overflow: auto;
+  position: relative;
+}
+
+.lines-grid-container table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.lines-grid-container thead {
+  position: sticky;
+  top: 0;
+  background-color: #f5f5f5;
+  z-index: 10;
+}
+
+.lines-grid-container th {
+  padding: 8px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  color: #666;
+  border-bottom: 2px solid #e0e0e0;
+  background-color: #f5f5f5;
+}
+
+.lines-grid-container td {
+  padding: 8px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.lines-grid-container tbody tr:hover {
+  background-color: #f9f9f9;
+}
+
+.line-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.empty-lines-message {
+  padding: 40px;
+  text-align: center;
+  color: #999;
+}
+
+.empty-lines-message .hint {
+  font-size: 12px;
+  margin-top: 8px;
+  font-style: italic;
+}
+
+.available-qty-cell {
+  font-variant-numeric: tabular-nums;
+}
+
+.available-loading {
+  color: #999;
+}
+
+.batch-serial-trigger {
+  background: none;
+  border: 1px dashed #ccc;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 12px;
+  cursor: pointer;
+  color: #333;
+  text-align: left;
+  min-width: 100px;
+}
+
+.batch-serial-trigger:hover {
+  border-color: #0066cc;
+  color: #0066cc;
+}
+
+.status-cell {
+  text-align: center;
+  vertical-align: middle;
+}
+
+.status-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.status-dot.status-valid {
+  background: #22c55e;
+}
+
+.status-dot.status-warning {
+  background: #eab308;
+}
+
+.status-dot.status-error {
+  background: #ef4444;
+}
+
+.reconciled-hint {
+  font-size: 10px;
+  color: #0066cc;
+  font-style: italic;
+}
+
+.lines-grid-container input:focus-visible,
+.lines-grid-container select:focus-visible,
+.lines-grid-container button:focus-visible,
+.lines-grid-container .status-cell:focus-visible {
+  outline: 2px solid #0066cc;
+  outline-offset: 2px;
+}
+
+.lines-grid-container tbody tr.focused-row {
+  background-color: rgba(0, 102, 204, 0.06);
+}

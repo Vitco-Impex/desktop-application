@@ -15,7 +15,7 @@ export interface CompanyState {
 }
 
 const defaultCompany: CompanyProfile = {
-  displayName: 'Company OS',
+  displayName: 'Busiman',
   logoUrl: null,
 };
 

@@ -88,7 +88,7 @@ export const LoginForm: React.FC = () => {
     <div className="login-container">
       <Card className="login-card" padding="lg">
         <div className="login-header">
-          <h1>{company?.displayName || 'Company OS Desktop'}</h1>
+          <h1>{company?.displayName || 'Busiman Desktop'}</h1>
           <p>Sign in to your account</p>
         </div>
 

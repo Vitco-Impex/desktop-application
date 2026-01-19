@@ -3,6 +3,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
   inventoryService,
   StockMovementResponse,
@@ -19,18 +20,26 @@ import { LoadingState, EmptyState, ErrorState } from '@/shared/components/data-d
 import { extractErrorMessage } from '@/utils/error';
 import { logger } from '@/shared/utils/logger';
 import { ConfirmDialog } from '@/shared/components/modals';
+import { ResizableSplitPane } from '@/shared/components/layout';
+import { MovementList } from './MovementList';
+import { MovementDetailPanel } from './MovementDetailPanel';
+import { CreateMovementView } from './CreateMovementView';
 import './MovementManagement.css';
 
 type ViewMode = 'list' | 'create' | 'details' | 'approve';
 type MovementSubTab = 'transactions' | 'counting' | 'adjustments';
 
 export const MovementManagement: React.FC = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [movements, setMovements] = useState<StockMovementResponse[]>([]);
+  const [adjustmentDocuments, setAdjustmentDocuments] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [movementSubTab, setMovementSubTab] = useState<MovementSubTab>('transactions');
+  const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null);
   
   // Stock counting state
   const [counts, setCounts] = useState<StockCountResponse[]>([]);
@@ -50,107 +59,25 @@ export const MovementManagement: React.FC = () => {
   const [showApproveCountDialog, setShowApproveCountDialog] = useState(false);
   const [countToApprove, setCountToApprove] = useState<string | null>(null);
   
-  useEffect(() => {
-    if (selectedCountId && countViewMode === 'details') {
-      loadCountDetails();
+  // Load functions - defined before useEffects to avoid TDZ errors
+  const loadCountDetails = async () => {
+    if (!selectedCountId) return;
+    setCountLoading(true);
+    setError(null);
+    try {
+      const data = await inventoryService.getCountHistory();
+      const count = data.find((c) => c.id === selectedCountId);
+      if (count) {
+        setSelectedCount(count);
+      }
+    } catch (err: any) {
+      const message = extractErrorMessage(err, 'Failed to load count details');
+      setError(message);
+      logger.error('[MovementManagement] Failed to load count details', err);
+    } finally {
+      setCountLoading(false);
     }
-  }, [selectedCountId, countViewMode]);
-  const [selectedMovementId, setSelectedMovementId] = useState<string | null>(null);
-  const [selectedMovement, setSelectedMovement] = useState<StockMovementResponse | null>(null);
-  const [items, setItems] = useState<InventoryItem[]>([]);
-  const [locations, setLocations] = useState<Location[]>([]);
-  const [reasonCodes, setReasonCodes] = useState<string[]>([]);
-  const [filters, setFilters] = useState({
-    movementType: '' as MovementType | '',
-    status: '' as MovementStatus | '',
-    itemId: '',
-    dateFrom: '',
-    dateTo: '',
-    locationId: '',
-  });
-  const [showFilters, setShowFilters] = useState(false);
-  const [showApproveDialog, setShowApproveDialog] = useState(false);
-  const [approveAction, setApproveAction] = useState<{ id: string; approved: boolean } | null>(null);
-  const [rejectionReason, setRejectionReason] = useState('');
-  const [expandedMovementRows, setExpandedMovementRows] = useState<Set<string>>(new Set());
-
-  const [formData, setFormData] = useState<CreateStockMovementRequest>({
-    movementType: MovementType.RECEIPT,
-    itemId: '',
-    quantity: 0,
-    unitOfMeasure: 'pcs',
-    reasonCode: '',
-    requiresApproval: false,
-  });
-  const [serialNumbers, setSerialNumbers] = useState<string[]>([]);
-  const [newSerialInput, setNewSerialInput] = useState('');
-  const [variants, setVariants] = useState<any[]>([]);
-  const [selectedVariantId, setSelectedVariantId] = useState<string>('');
-  const [serialAttributes, setSerialAttributes] = useState<Record<string, Record<string, any>>>({});
-  const [attributeTemplate, setAttributeTemplate] = useState<any | null>(null);
-
-  useEffect(() => {
-    loadMovements();
-    loadItems();
-    loadLocations();
-    loadReasonCodes();
-  }, []);
-
-  useEffect(() => {
-    if (viewMode === 'list' && movementSubTab === 'transactions') {
-      loadMovements();
-    } else if (movementSubTab === 'counting') {
-      loadCounts();
-    }
-  }, [movementSubTab, filters, viewMode]);
-
-  useEffect(() => {
-    const handleQuickReceipt = () => {
-      setMovementSubTab('transactions');
-      setViewMode('create');
-      setFormData({
-        movementType: MovementType.RECEIPT,
-        itemId: '',
-        quantity: 0,
-        unitOfMeasure: 'pcs',
-        reasonCode: '',
-        requiresApproval: false,
-      });
-    };
-
-    const handleQuickTransfer = () => {
-      setMovementSubTab('transactions');
-      setViewMode('create');
-      setFormData({
-        movementType: MovementType.TRANSFER,
-        itemId: '',
-        quantity: 0,
-        unitOfMeasure: 'pcs',
-        reasonCode: '',
-        requiresApproval: false,
-      });
-    };
-
-    window.addEventListener('quick-receipt', handleQuickReceipt);
-    window.addEventListener('quick-transfer', handleQuickTransfer);
-
-    return () => {
-      window.removeEventListener('quick-receipt', handleQuickReceipt);
-      window.removeEventListener('quick-transfer', handleQuickTransfer);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (viewMode === 'list') {
-      loadMovements();
-    }
-  }, [viewMode, filters]);
-
-  useEffect(() => {
-    if (selectedMovementId && viewMode === 'details') {
-      loadMovementDetails();
-    }
-  }, [selectedMovementId, viewMode]);
+  };
 
   const loadMovements = async () => {
     setLoading(true);
@@ -213,6 +140,139 @@ export const MovementManagement: React.FC = () => {
       logger.error('[MovementManagement] Failed to load reason codes', err);
     }
   };
+
+  const loadCounts = async () => {
+    setCountLoading(true);
+    setError(null);
+    try {
+      const data = await inventoryService.getCountHistory();
+      setCounts(data);
+    } catch (err: any) {
+      const message = extractErrorMessage(err, 'Failed to load stock counts');
+      setError(message);
+      logger.error('[MovementManagement] Failed to load counts', err);
+    } finally {
+      setCountLoading(false);
+    }
+  };
+  
+  useEffect(() => {
+    if (selectedCountId && countViewMode === 'details') {
+      loadCountDetails();
+    }
+  }, [selectedCountId, countViewMode]);
+  const [selectedMovementId, setSelectedMovementId] = useState<string | null>(null);
+  const [selectedMovement, setSelectedMovement] = useState<StockMovementResponse | null>(null);
+  const [items, setItems] = useState<InventoryItem[]>([]);
+  const [locations, setLocations] = useState<Location[]>([]);
+  const [reasonCodes, setReasonCodes] = useState<string[]>([]);
+  const [filters, setFilters] = useState({
+    movementType: '' as MovementType | '',
+    status: '' as MovementStatus | '',
+    itemId: '',
+    dateFrom: '',
+    dateTo: '',
+    locationId: '',
+  });
+  const [showFilters, setShowFilters] = useState(false);
+  const [showApproveDialog, setShowApproveDialog] = useState(false);
+  const [approveAction, setApproveAction] = useState<{ id: string; approved: boolean } | null>(null);
+  const [rejectionReason, setRejectionReason] = useState('');
+  const [expandedMovementRows, setExpandedMovementRows] = useState<Set<string>>(new Set());
+
+  const [formData, setFormData] = useState<CreateStockMovementRequest>({
+    movementType: MovementType.RECEIPT,
+    itemId: '',
+    quantity: 0,
+    unitOfMeasure: 'pcs',
+    reasonCode: '',
+    requiresApproval: false,
+  });
+  const [serialNumbers, setSerialNumbers] = useState<string[]>([]);
+  const [newSerialInput, setNewSerialInput] = useState('');
+  const [variants, setVariants] = useState<any[]>([]);
+  const [selectedVariantId, setSelectedVariantId] = useState<string>('');
+  const [serialAttributes, setSerialAttributes] = useState<Record<string, Record<string, any>>>({});
+  const [attributeTemplate, setAttributeTemplate] = useState<any | null>(null);
+
+  const loadAdjustmentMovements = async () => {
+    try {
+      const data = await inventoryService.getAllMovements({
+        movementType: MovementType.ADJUSTMENT,
+      });
+      setAdjustmentMovements(data);
+    } catch (err: any) {
+      logger.error('[MovementManagement] Failed to load adjustment movements', err);
+    }
+  };
+
+  useEffect(() => {
+    loadMovements();
+    loadItems();
+    loadLocations();
+    loadReasonCodes();
+    if (movementSubTab === 'adjustments') {
+      loadAdjustmentMovements();
+    }
+  }, []);
+
+  useEffect(() => {
+    if (viewMode === 'list' && movementSubTab === 'transactions') {
+      loadMovements();
+    } else if (movementSubTab === 'counting') {
+      loadCounts();
+    } else if (movementSubTab === 'adjustments') {
+      loadAdjustmentMovements();
+    }
+  }, [movementSubTab, filters, viewMode]);
+
+  useEffect(() => {
+    const handleQuickReceipt = () => {
+      setMovementSubTab('transactions');
+      setViewMode('create');
+      setFormData({
+        movementType: MovementType.RECEIPT,
+        itemId: '',
+        quantity: 0,
+        unitOfMeasure: 'pcs',
+        reasonCode: '',
+        requiresApproval: false,
+      });
+    };
+
+    const handleQuickTransfer = () => {
+      setMovementSubTab('transactions');
+      setViewMode('create');
+      setFormData({
+        movementType: MovementType.TRANSFER,
+        itemId: '',
+        quantity: 0,
+        unitOfMeasure: 'pcs',
+        reasonCode: '',
+        requiresApproval: false,
+      });
+    };
+
+    window.addEventListener('quick-receipt', handleQuickReceipt);
+    window.addEventListener('quick-transfer', handleQuickTransfer);
+
+    return () => {
+      window.removeEventListener('quick-receipt', handleQuickReceipt);
+      window.removeEventListener('quick-transfer', handleQuickTransfer);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (viewMode === 'list') {
+      loadMovements();
+    }
+  }, [viewMode, filters]);
+
+  useEffect(() => {
+    if (selectedMovementId && viewMode === 'details') {
+      loadMovementDetails();
+    }
+  }, [selectedMovementId, viewMode]);
 
   const loadVariants = async (itemId: string) => {
     try {
@@ -340,40 +400,6 @@ export const MovementManagement: React.FC = () => {
 
   const getSelectedItem = () => {
     return items.find((item) => item.id === formData.itemId);
-  };
-  
-  const loadCounts = async () => {
-    setCountLoading(true);
-    setError(null);
-    try {
-      const data = await inventoryService.getCountHistory();
-      setCounts(data);
-    } catch (err: any) {
-      const message = extractErrorMessage(err, 'Failed to load stock counts');
-      setError(message);
-      logger.error('[MovementManagement] Failed to load counts', err);
-    } finally {
-      setCountLoading(false);
-    }
-  };
-  
-  const loadCountDetails = async () => {
-    if (!selectedCountId) return;
-    setCountLoading(true);
-    setError(null);
-    try {
-      const data = await inventoryService.getCountHistory();
-      const count = data.find((c) => c.id === selectedCountId);
-      if (count) {
-        setSelectedCount(count);
-      }
-    } catch (err: any) {
-      const message = extractErrorMessage(err, 'Failed to load count details');
-      setError(message);
-      logger.error('[MovementManagement] Failed to load count details', err);
-    } finally {
-      setCountLoading(false);
-    }
   };
   
   const handleCreateCount = async () => {
@@ -1710,16 +1736,164 @@ export const MovementManagement: React.FC = () => {
       )}
 
       {/* Content based on sub-tab */}
-      {viewMode === 'list' && movementSubTab === 'transactions' && renderList()}
+      {viewMode === 'list' && movementSubTab === 'transactions' && (
+        <ResizableSplitPane
+          left={
+            <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+              <div style={{ padding: '16px', borderBottom: '1px solid #e0e0e0' }}>
+                <Button variant="primary" onClick={() => setViewMode('create')}>
+                  Create Movement
+                </Button>
+              </div>
+              <div style={{ flex: 1, overflow: 'auto' }}>
+                <MovementList
+                  onSelectMovement={setSelectedDocumentId}
+                  selectedDocumentId={selectedDocumentId || undefined}
+                  key={viewMode === 'list' ? 'list' : 'list-refresh'} // Force refresh when returning to list
+                />
+              </div>
+            </div>
+          }
+          right={
+            <MovementDetailPanel
+              documentId={selectedDocumentId}
+              onClose={() => setSelectedDocumentId(null)}
+              onRefresh={() => {
+                // Refresh list if needed
+                setSelectedDocumentId(null);
+              }}
+            />
+          }
+          storageKey="movement-list-detail-split"
+          defaultLeftPercent={55}
+          leftMin={300}
+          rightMin={400}
+        />
+      )}
       {viewMode === 'list' && movementSubTab === 'counting' && renderCountingView()}
       {viewMode === 'list' && movementSubTab === 'adjustments' && (
-        <div className="adjustments-placeholder">
-          <h3>Manual Adjustments</h3>
-          <p>Manual adjustment functionality coming soon...</p>
-          <p>For now, use stock movements with type ADJUSTMENT.</p>
+        <div className="adjustments-view">
+          <div className="adjustments-header">
+            <div>
+              <h3>Manual Adjustments</h3>
+              <p className="adjustments-description">
+                Adjustments correct recorded quantity to match physical or process needs. All changes are made via ADJUSTMENT movements and are auditable.
+              </p>
+            </div>
+            <Button
+              variant="primary"
+              onClick={() => {
+                setMovementSubTab('transactions');
+                setViewMode('create');
+                const newParams = new URLSearchParams(searchParams);
+                newParams.set('movementType', MovementType.ADJUSTMENT);
+                window.history.replaceState({}, '', `?${newParams.toString()}`);
+              }}
+            >
+              Create Adjustment Movement
+            </Button>
+          </div>
+
+          <div className="adjustments-recent">
+            <h4>Recent ADJUSTMENT Movements</h4>
+            {loading ? (
+              <LoadingState message="Loading adjustments..." />
+            ) : adjustmentDocuments.length === 0 ? (
+              <EmptyState message="No adjustment movements found" />
+            ) : (
+              <div className="adjustments-table">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Movement #</th>
+                      <th>Date</th>
+                      <th>Lines</th>
+                      <th>From</th>
+                      <th>To</th>
+                      <th>Total Quantity</th>
+                      <th>Status</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {adjustmentDocuments.slice(0, 20).map((doc) => (
+                        <tr
+                          key={doc.id}
+                          onClick={() => {
+                            setSelectedDocumentId(doc.id);
+                            setMovementSubTab('transactions');
+                          }}
+                          style={{ cursor: 'pointer' }}
+                        >
+                          <td>{doc.movementNumber}</td>
+                          <td>{new Date(doc.createdAt).toLocaleDateString()}</td>
+                          <td>{doc.totalLines}</td>
+                          <td>{doc.defaultFromLocation?.code || doc.lines[0]?.fromLocation?.code || '-'}</td>
+                          <td>{doc.defaultToLocation?.code || doc.lines[0]?.toLocation?.code || '-'}</td>
+                          <td>{doc.totalQuantity}</td>
+                          <td>
+                            <span className={`status-${doc.status.toLowerCase()}`}>
+                              {doc.status}
+                            </span>
+                          </td>
+                          <td onClick={(e) => e.stopPropagation()}>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedDocumentId(doc.id);
+                                setMovementSubTab('transactions');
+                              }}
+                            >
+                              View
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         </div>
       )}
-      {viewMode === 'create' && renderForm()}
+      {viewMode === 'create' && (
+        <CreateMovementView
+          onCancel={() => {
+            setViewMode('list');
+            // Clear movement-related params
+            const newParams = new URLSearchParams(searchParams);
+            newParams.delete('create');
+            newParams.delete('movementType');
+            newParams.delete('itemId');
+            newParams.delete('variantId');
+            newParams.delete('fromLocationId');
+            newParams.delete('toLocationId');
+            setSearchParams(newParams);
+          }}
+          onSuccess={() => {
+            setViewMode('list');
+            setSelectedDocumentId(null);
+            // Clear movement-related params
+            const newParams = new URLSearchParams(searchParams);
+            newParams.delete('create');
+            newParams.delete('movementType');
+            newParams.delete('itemId');
+            newParams.delete('variantId');
+            newParams.delete('fromLocationId');
+            newParams.delete('toLocationId');
+            setSearchParams(newParams);
+            // Refresh list will happen via useEffect
+          }}
+          prefillData={{
+            movementType: searchParams.get('movementType') as MovementType | undefined,
+            itemId: searchParams.get('itemId') || undefined,
+            variantId: searchParams.get('variantId') || undefined,
+            fromLocationId: searchParams.get('fromLocationId') || undefined,
+            toLocationId: searchParams.get('toLocationId') || undefined,
+          }}
+        />
+      )}
       {viewMode === 'details' && renderDetails()}
 
       <ConfirmDialog

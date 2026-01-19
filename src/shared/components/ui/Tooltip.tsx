@@ -1,9 +1,13 @@
 /**
  * Tooltip Component
+ * Uses React Portal to mount on document.body so it is not clipped by overflow.
  */
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import './Tooltip.css';
+
+const GAP = 8;
 
 export interface TooltipProps {
   content: React.ReactNode;
@@ -21,49 +25,104 @@ export const Tooltip: React.FC<TooltipProps> = ({
   className = '',
 }) => {
   const [isVisible, setIsVisible] = useState(false);
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const tooltipRef = useRef<HTMLDivElement>(null);
+  const [coords, setCoords] = useState<{ top: number; left: number; transform: string } | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  const updatePosition = useCallback(() => {
+    if (!wrapperRef.current) return;
+    const rect = wrapperRef.current.getBoundingClientRect();
+    let top = 0;
+    let left = 0;
+    let transform = '';
+
+    switch (position) {
+      case 'top':
+        left = rect.left + rect.width / 2;
+        top = rect.top - GAP;
+        transform = 'translate(-50%, -100%)';
+        break;
+      case 'bottom':
+        left = rect.left + rect.width / 2;
+        top = rect.bottom + GAP;
+        transform = 'translateX(-50%)';
+        break;
+      case 'left':
+        left = rect.left - GAP;
+        top = rect.top + rect.height / 2;
+        transform = 'translate(-100%, -50%)';
+        break;
+      case 'right':
+        left = rect.right + GAP;
+        top = rect.top + rect.height / 2;
+        transform = 'translateY(-50%)';
+        break;
+    }
+
+    setCoords({ top, left, transform });
+  }, [position]);
 
   const showTooltip = () => {
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-    }
-    timeoutRef.current = setTimeout(() => {
-      setIsVisible(true);
-    }, delay);
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    timeoutRef.current = setTimeout(() => setIsVisible(true), delay);
   };
 
   const hideTooltip = () => {
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-    }
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
     setIsVisible(false);
+    setCoords(null);
   };
+
+  useLayoutEffect(() => {
+    if (isVisible && wrapperRef.current) {
+      updatePosition();
+    }
+  }, [isVisible, updatePosition]);
+
+  useEffect(() => {
+    if (!isVisible) return;
+    const onScroll = () => updatePosition();
+    const onResize = () => updatePosition();
+    document.addEventListener('scroll', onScroll, true);
+    window.addEventListener('resize', onResize);
+    return () => {
+      document.removeEventListener('scroll', onScroll, true);
+      window.removeEventListener('resize', onResize);
+    };
+  }, [isVisible, updatePosition]);
 
   useEffect(() => {
     return () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };
   }, []);
 
   return (
-    <div
-      className={`tooltip-wrapper ${className}`}
-      onMouseEnter={showTooltip}
-      onMouseLeave={hideTooltip}
-    >
-      {children}
-      {isVisible && (
+    <>
+      <div
+        ref={wrapperRef}
+        className={`tooltip-wrapper ${className}`}
+        onMouseEnter={showTooltip}
+        onMouseLeave={hideTooltip}
+      >
+        {children}
+      </div>
+      {isVisible && coords && createPortal(
         <div
-          ref={tooltipRef}
-          className={`tooltip tooltip--${position}`}
+          className="tooltip tooltip--portal"
           role="tooltip"
+          style={{
+            position: 'fixed',
+            top: coords.top,
+            left: coords.left,
+            transform: coords.transform,
+            zIndex: 1060,
+          }}
         >
           {content}
-        </div>
+        </div>,
+        document.body
       )}
-    </div>
+    </>
   );
 };

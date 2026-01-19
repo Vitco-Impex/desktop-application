@@ -1,16 +1,16 @@
 {
-  "name": "company-os-desktop",
+  "name": "busiman-desktop",
   "version": "1.11.0",
-  "description": "Company OS Desktop Application",
+  "description": "Busiman Desktop Application",
   "main": "dist-electron/main.js",
   "author": {
     "name": "Pioneer Ventures",
     "email": "info@pioneer.com"
   },
   "build": {
-    "appId": "com.companyos.desktop",
-    "productName": "Company OS Desktop",
-    "copyright": "Copyright © 2025 Company OS",
+    "appId": "com.busiman.desktop",
+    "productName": "Busiman Desktop",
+    "copyright": "Copyright © 2025 Busiman",
     "directories": {
       "buildResources": "build",
       "output": "release"

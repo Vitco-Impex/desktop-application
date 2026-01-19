@@ -52,3 +52,5 @@ export type { CollapsibleSectionProps } from './CollapsibleSection';
 export { InlineEditField } from './InlineEditField';
 export type { InlineEditFieldProps } from './InlineEditField';
 
+export { DropdownMenu } from './DropdownMenu';
+export type { DropdownMenuProps, DropdownMenuItem } from './DropdownMenu';

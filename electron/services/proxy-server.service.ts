@@ -554,8 +554,8 @@ class ProxyServerService {
 
       const bonjour = Bonjour();
       this.mdnsService = bonjour.publish({
-        name: `Company OS Proxy - ${this.deviceName}`,
-        type: '_companyos-attendance-proxy._tcp',
+        name: `Busiman Proxy - ${this.deviceName}`,
+        type: '_busiman-attendance-proxy._tcp',
         port: this.port,
         txt: {
           userId: (await sessionService.getUser())?.id || '',
@@ -563,8 +563,8 @@ class ProxyServerService {
         },
       });
 
-      console.log(`[ProxyServer] ✅ Registered mDNS service: Company OS Proxy - ${this.deviceName}`);
-      console.log(`[ProxyServer] 📡 Service type: _companyos-attendance-proxy._tcp`);
+      console.log(`[ProxyServer] ✅ Registered mDNS service: Busiman Proxy - ${this.deviceName}`);
+      console.log(`[ProxyServer] 📡 Service type: _busiman-attendance-proxy._tcp`);
       console.log(`[ProxyServer] 📡 Port: ${this.port}`);
       console.log(`[ProxyServer] 📡 IP: ${this.currentIpAddress}`);
       console.log(`[ProxyServer] 💡 Mobile devices on the same WiFi can now discover this proxy`);

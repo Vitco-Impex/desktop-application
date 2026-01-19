@@ -1,11 +1,17 @@
 /**
  * Product Detail Page - Full-page product detail view
+ * 
+ * @deprecated This component is deprecated. Use ItemMaster details view instead.
+ * All routes to this component should redirect to ItemMaster details view.
+ * This file will be removed after migration period.
+ * 
+ * Migration: Navigate to ItemMaster and select the item to view details.
  */
 
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { inventoryService, InventoryItem, InventoryVariant } from '@/services/inventory.service';
-import { Button, Card } from '@/shared/components/ui';
+import React, { useState, useEffect, useRef } from 'react';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { inventoryService, InventoryItem, InventoryVariant, StockByItem, StockMovementResponse, MovementType } from '@/services/inventory.service';
+import { Button, Card, Input, Select } from '@/shared/components/ui';
 import { LoadingState, EmptyState, ErrorState } from '@/shared/components/data-display';
 import { extractErrorMessage } from '@/utils/error';
 import { logger } from '@/shared/utils/logger';
@@ -18,20 +24,105 @@ type DetailTab = 'overview' | 'variants' | 'stock' | 'history' | 'settings';
 export const ProductDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  
+  // Redirect to ItemMaster details view
+  useEffect(() => {
+    if (id) {
+      const variantId = searchParams.get('variantId');
+      // Redirect to ItemMaster with item selected and appropriate tab
+      navigate(`/inventory?itemId=${id}${variantId ? `&variantId=${variantId}` : ''}`, { replace: true });
+    }
+  }, [id, navigate, searchParams]);
   const [item, setItem] = useState<InventoryItem | null>(null);
   const [variants, setVariants] = useState<InventoryVariant[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const variantIdFromUrl = searchParams.get('variantId');
   const [activeTab, setActiveTab] = useState<DetailTab>('overview');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [primaryImageIndex, setPrimaryImageIndex] = useState(0);
   const [showImageLightbox, setShowImageLightbox] = useState(false);
+  const [stockData, setStockData] = useState<StockByItem[]>([]);
+  const [stockLoading, setStockLoading] = useState(false);
+  const [movementHistory, setMovementHistory] = useState<StockMovementResponse[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyFilters, setHistoryFilters] = useState({
+    dateFrom: '',
+    dateTo: '',
+    movementType: '',
+    locationId: '',
+  });
+  const variantRowRef = useRef<HTMLTableRowElement | null>(null);
 
   useEffect(() => {
     if (id) {
       loadItem();
     }
   }, [id]);
+
+  // Auto-switch to variants tab when variantId is in URL
+  useEffect(() => {
+    if (variantIdFromUrl && item?.hasVariants) {
+      setActiveTab('variants');
+      // Scroll to variant after a short delay to ensure DOM is ready
+      setTimeout(() => {
+        if (variantRowRef.current) {
+          variantRowRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 300);
+    }
+  }, [variantIdFromUrl, item?.hasVariants]);
+
+  // Load stock data when stock tab is active
+  useEffect(() => {
+    if (activeTab === 'stock' && id) {
+      loadStockData();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, id]);
+
+  // Load movement history when history tab is active or filters change
+  useEffect(() => {
+    if (activeTab === 'history' && id) {
+      loadMovementHistory();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, id, historyFilters.dateFrom, historyFilters.dateTo, historyFilters.movementType, historyFilters.locationId]);
+
+  const loadStockData = async () => {
+    if (!id) return;
+    setStockLoading(true);
+    try {
+      const data = await inventoryService.getStockByItem(id);
+      setStockData(data);
+    } catch (err: any) {
+      logger.error('[ProductDetailPage] Failed to load stock data', err);
+      setStockData([]);
+    } finally {
+      setStockLoading(false);
+    }
+  };
+
+  const loadMovementHistory = async () => {
+    if (!id) return;
+    setHistoryLoading(true);
+    try {
+      const filters: any = { itemId: id };
+      if (historyFilters.dateFrom) filters.dateFrom = historyFilters.dateFrom;
+      if (historyFilters.dateTo) filters.dateTo = historyFilters.dateTo;
+      if (historyFilters.movementType) filters.movementType = historyFilters.movementType as MovementType;
+      if (historyFilters.locationId) filters.fromLocationId = historyFilters.locationId;
+      
+      const data = await inventoryService.getAllMovements(filters);
+      setMovementHistory(data);
+    } catch (err: any) {
+      logger.error('[ProductDetailPage] Failed to load movement history', err);
+      setMovementHistory([]);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
 
   const loadItem = async () => {
     if (!id) return;
@@ -91,6 +182,11 @@ export const ProductDetailPage: React.FC = () => {
 
   const allImages = item.images || [];
   const primaryImage = allImages.find(img => img.isPrimary) || allImages[0];
+  
+  // Get selected variant for display
+  const selectedVariant = variantIdFromUrl && variants.length > 0 
+    ? variants.find(v => v.id === variantIdFromUrl) 
+    : null;
 
   return (
     <div className="product-detail-page">
@@ -101,6 +197,12 @@ export const ProductDetailPage: React.FC = () => {
         </button>
         <span className="breadcrumb-separator">/</span>
         <span className="breadcrumb-current">{item.name}</span>
+        {selectedVariant && (
+          <>
+            <span className="breadcrumb-separator">/</span>
+            <span className="breadcrumb-current">{selectedVariant.name || selectedVariant.code || 'Variant'}</span>
+          </>
+        )}
       </div>
 
       {/* Hero Section */}
@@ -122,7 +224,10 @@ export const ProductDetailPage: React.FC = () => {
             </div>
           ) : (
             <div className="product-image-placeholder">
-              <span>No Image</span>
+              <svg width="64" height="64" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M21 19V5C21 3.9 20.1 3 19 3H5C3.9 3 3 3.9 3 5V19C3 20.1 3.9 21 5 21H19C20.1 21 21 20.1 21 19ZM8.5 13.5L11 16.51L14.5 12L19 18H5L8.5 13.5Z" fill="currentColor"/>
+              </svg>
+              <p>No Image Available</p>
             </div>
           )}
           
@@ -172,30 +277,6 @@ export const ProductDetailPage: React.FC = () => {
 
           {/* Quick Info Grid */}
           <div className="product-quick-info">
-            {item.costPrice !== undefined && (
-              <div className="quick-info-item">
-                <span className="quick-info-label">Cost Price</span>
-                <span className="quick-info-value">${item.costPrice.toFixed(2)}</span>
-              </div>
-            )}
-            {item.sellingPrice !== undefined && (
-              <div className="quick-info-item">
-                <span className="quick-info-label">Selling Price</span>
-                <span className="quick-info-value">${item.sellingPrice.toFixed(2)}</span>
-              </div>
-            )}
-            {item.margin !== undefined && (
-              <div className="quick-info-item">
-                <span className="quick-info-label">Margin</span>
-                <span className="quick-info-value">{item.margin.toFixed(2)}%</span>
-              </div>
-            )}
-            {item.supplierName && (
-              <div className="quick-info-item">
-                <span className="quick-info-label">Supplier</span>
-                <span className="quick-info-value">{item.supplierName}</span>
-              </div>
-            )}
             {item.unitOfMeasure && (
               <div className="quick-info-item">
                 <span className="quick-info-label">Unit</span>
@@ -261,12 +342,6 @@ export const ProductDetailPage: React.FC = () => {
                   <span className="overview-label">SKU:</span>
                   <span className="overview-value">{item.sku}</span>
                 </div>
-                {item.barcode && (
-                  <div className="overview-item">
-                    <span className="overview-label">Barcode:</span>
-                    <span className="overview-value">{item.barcode}</span>
-                  </div>
-                )}
                 <div className="overview-item">
                   <span className="overview-label">Category:</span>
                   <span className="overview-value">{item.category || '-'}</span>
@@ -283,41 +358,6 @@ export const ProductDetailPage: React.FC = () => {
                 </div>
               </Card>
 
-              {(item.costPrice !== undefined || item.sellingPrice !== undefined || item.supplierName) && (
-                <Card className="overview-card">
-                  <h3>Pricing & Supplier</h3>
-                  {item.costPrice !== undefined && (
-                    <div className="overview-item">
-                      <span className="overview-label">Cost Price:</span>
-                      <span className="overview-value">${item.costPrice.toFixed(2)}</span>
-                    </div>
-                  )}
-                  {item.sellingPrice !== undefined && (
-                    <div className="overview-item">
-                      <span className="overview-label">Selling Price:</span>
-                      <span className="overview-value">${item.sellingPrice.toFixed(2)}</span>
-                    </div>
-                  )}
-                  {item.margin !== undefined && (
-                    <div className="overview-item">
-                      <span className="overview-label">Margin:</span>
-                      <span className="overview-value">{item.margin.toFixed(2)}%</span>
-                    </div>
-                  )}
-                  {item.supplierName && (
-                    <div className="overview-item">
-                      <span className="overview-label">Supplier:</span>
-                      <span className="overview-value">{item.supplierName}</span>
-                    </div>
-                  )}
-                  {item.supplierCode && (
-                    <div className="overview-item">
-                      <span className="overview-label">Supplier Code:</span>
-                      <span className="overview-value">{item.supplierCode}</span>
-                    </div>
-                  )}
-                </Card>
-              )}
 
               {(item.dimensions || item.weight) && (
                 <Card className="overview-card">
@@ -371,38 +411,60 @@ export const ProductDetailPage: React.FC = () => {
                 </div>
               </Card>
 
-              {(item.minStockLevel !== undefined || item.maxStockLevel !== undefined || item.reorderPoint !== undefined) && (
-                <Card className="overview-card">
-                  <h3>Stock Levels</h3>
-                  {item.minStockLevel !== undefined && (
-                    <div className="overview-item">
-                      <span className="overview-label">Min Stock:</span>
-                      <span className="overview-value">{item.minStockLevel}</span>
-                    </div>
-                  )}
-                  {item.maxStockLevel !== undefined && (
-                    <div className="overview-item">
-                      <span className="overview-label">Max Stock:</span>
-                      <span className="overview-value">{item.maxStockLevel}</span>
-                    </div>
-                  )}
-                  {item.reorderPoint !== undefined && (
-                    <div className="overview-item">
-                      <span className="overview-label">Reorder Point:</span>
-                      <span className="overview-value">{item.reorderPoint}</span>
-                    </div>
-                  )}
-                </Card>
-              )}
             </div>
           </div>
         )}
 
         {activeTab === 'variants' && item.hasVariants && id && (
           <div className="product-variants-tab">
+        {selectedVariant && (
+          <Card className="variant-detail-card">
+            <div className="variant-detail-header">
+              <h3>Variant Details</h3>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setSearchParams({});
+                }}
+              >
+                Clear Selection
+              </Button>
+            </div>
+            <div className="variant-detail-grid">
+              <div className="variant-detail-item">
+                <span className="variant-detail-label">Code:</span>
+                <span className="variant-detail-value">{selectedVariant.code || '-'}</span>
+              </div>
+              <div className="variant-detail-item">
+                <span className="variant-detail-label">Name:</span>
+                <span className="variant-detail-value">{selectedVariant.name || '-'}</span>
+              </div>
+              {selectedVariant.barcode && (
+                <div className="variant-detail-item">
+                  <span className="variant-detail-label">Barcode:</span>
+                  <span className="variant-detail-value">{selectedVariant.barcode}</span>
+                </div>
+              )}
+              <div className="variant-detail-item">
+                <span className="variant-detail-label">Status:</span>
+                <span className={`variant-detail-value ${selectedVariant.isActive ? 'status-active' : 'status-inactive'}`}>
+                  {selectedVariant.isActive ? 'Active' : 'Inactive'}
+                </span>
+              </div>
+              {selectedVariant.isDefault && (
+                <div className="variant-detail-item">
+                  <span className="variant-detail-label">Default:</span>
+                  <span className="variant-detail-value">Yes</span>
+                </div>
+              )}
+            </div>
+          </Card>
+        )}
             <VariantManagement
               itemId={id}
               itemName={item.name}
+              selectedVariantId={variantIdFromUrl || undefined}
               onVariantChange={async () => {
                 const variantData = await inventoryService.getVariantsByItem(id);
                 setVariants(variantData);
@@ -413,13 +475,181 @@ export const ProductDetailPage: React.FC = () => {
 
         {activeTab === 'stock' && (
           <div className="product-stock-tab">
-            <p>Stock information will be displayed here</p>
+            {stockLoading ? (
+              <LoadingState message="Loading stock information..." />
+            ) : stockData.length === 0 ? (
+              <EmptyState message="No stock information available" />
+            ) : (
+              <div className="stock-table-container">
+                <table className="stock-table">
+                  <thead>
+                    <tr>
+                      <th>Location</th>
+                      {item.hasVariants && <th>Variant</th>}
+                      {item.industryFlags.requiresBatchTracking && <th>Batch</th>}
+                      {item.industryFlags.requiresSerialTracking && <th>Serial</th>}
+                      <th>On Hand</th>
+                      <th>Reserved</th>
+                      <th>Blocked</th>
+                      <th>Damaged</th>
+                      <th>Available</th>
+                      {item.industryFlags.hasExpiryDate && <th>Expiry Date</th>}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {stockData.map((stock, index) => {
+                      const variant = stock.variantId ? variants.find(v => v.id === stock.variantId) : null;
+                      return (
+                        <tr key={index}>
+                          <td>
+                            {stock.location ? (
+                              <div>
+                                <div className="stock-location-code">{stock.location.code}</div>
+                                <div className="stock-location-name">{stock.location.name}</div>
+                              </div>
+                            ) : (
+                              '-'
+                            )}
+                          </td>
+                          {item.hasVariants && (
+                            <td>
+                              {variant ? (
+                                <span className="variant-badge">{variant.code}</span>
+                              ) : (
+                                '-'
+                              )}
+                            </td>
+                          )}
+                          {item.industryFlags.requiresBatchTracking && (
+                            <td>{stock.batchNumber || '-'}</td>
+                          )}
+                          {item.industryFlags.requiresSerialTracking && (
+                            <td>{stock.serialNumber || '-'}</td>
+                          )}
+                          <td className="stock-quantity">{stock.onHandQuantity}</td>
+                          <td className="stock-quantity">{stock.reservedQuantity}</td>
+                          <td className="stock-quantity">{stock.blockedQuantity}</td>
+                          <td className="stock-quantity">{stock.damagedQuantity}</td>
+                          <td className="stock-quantity available">{stock.availableQuantity}</td>
+                          {item.industryFlags.hasExpiryDate && (
+                            <td>{stock.expiryDate ? new Date(stock.expiryDate).toLocaleDateString() : '-'}</td>
+                          )}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         )}
 
         {activeTab === 'history' && (
           <div className="product-history-tab">
-            <p>Movement history will be displayed here</p>
+            <div className="history-filters">
+              <div className="filter-group">
+                <label>Date From</label>
+                <Input
+                  type="date"
+                  value={historyFilters.dateFrom}
+                  onChange={(e) => {
+                    setHistoryFilters({ ...historyFilters, dateFrom: e.target.value });
+                  }}
+                />
+              </div>
+              <div className="filter-group">
+                <label>Date To</label>
+                <Input
+                  type="date"
+                  value={historyFilters.dateTo}
+                  onChange={(e) => {
+                    setHistoryFilters({ ...historyFilters, dateTo: e.target.value });
+                  }}
+                />
+              </div>
+              <div className="filter-group">
+                <label>Movement Type</label>
+                <Select
+                  value={historyFilters.movementType}
+                  onChange={(e) => {
+                    setHistoryFilters({ ...historyFilters, movementType: e.target.value });
+                  }}
+                >
+                  <option value="">All Types</option>
+                  {Object.values(MovementType).map((type) => (
+                    <option key={type} value={type}>
+                      {type}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setHistoryFilters({ dateFrom: '', dateTo: '', movementType: '', locationId: '' });
+                }}
+              >
+                Clear Filters
+              </Button>
+            </div>
+
+            {historyLoading ? (
+              <LoadingState message="Loading movement history..." />
+            ) : movementHistory.length === 0 ? (
+              <EmptyState message="No movement history found" />
+            ) : (
+              <div className="history-table-container">
+                <table className="history-table">
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Movement #</th>
+                      <th>Type</th>
+                      <th>From Location</th>
+                      <th>To Location</th>
+                      {item.hasVariants && <th>Variant</th>}
+                      <th>Quantity</th>
+                      <th>Status</th>
+                      <th>Reason</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {movementHistory.map((movement) => {
+                      const variant = movement.variantId ? variants.find(v => v.id === movement.variantId) : null;
+                      return (
+                        <tr key={movement.id}>
+                          <td>{movement.createdAt ? new Date(movement.createdAt).toLocaleString() : '-'}</td>
+                          <td className="movement-number">{movement.movementNumber}</td>
+                          <td>
+                            <span className={`movement-type-badge movement-type-${movement.movementType.toLowerCase()}`}>
+                              {movement.movementType}
+                            </span>
+                          </td>
+                          <td>{movement.fromLocation?.name || '-'}</td>
+                          <td>{movement.toLocation?.name || '-'}</td>
+                          {item.hasVariants && (
+                            <td>
+                              {variant ? (
+                                <span className="variant-badge">{variant.code}</span>
+                              ) : (
+                                '-'
+                              )}
+                            </td>
+                          )}
+                          <td className="movement-quantity">{movement.quantity} {movement.unitOfMeasure}</td>
+                          <td>
+                            <span className={`status-badge status-${movement.status.toLowerCase()}`}>
+                              {movement.status}
+                            </span>
+                          </td>
+                          <td>{movement.reasonDescription || movement.reasonCode}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         )}
 

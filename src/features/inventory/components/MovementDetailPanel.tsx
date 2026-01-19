@@ -1,0 +1,442 @@
+/**
+ * Movement Detail Panel Component - Document view with tabs
+ */
+
+import React, { useState, useEffect } from 'react';
+import { inventoryService, MovementDocumentResponse, MovementStatus } from '@/services/inventory.service';
+import { Button, Card } from '@/shared/components/ui';
+import { LoadingState } from '@/shared/components/data-display';
+import { extractErrorMessage } from '@/utils/error';
+import { logger } from '@/shared/utils/logger';
+import { ConfirmDialog } from '@/shared/components/modals';
+import './MovementDetailPanel.css';
+
+interface MovementDetailPanelProps {
+  documentId: string | null;
+  onClose: () => void;
+  onRefresh?: () => void;
+}
+
+type DetailTab = 'overview' | 'lines' | 'audit' | 'reversal';
+
+export const MovementDetailPanel: React.FC<MovementDetailPanelProps> = ({
+  documentId,
+  onClose,
+  onRefresh,
+}) => {
+  const [document, setDocument] = useState<MovementDocumentResponse | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<DetailTab>('overview');
+  const [showApproveDialog, setShowApproveDialog] = useState(false);
+  const [approveAction, setApproveAction] = useState<'approve' | 'reject' | null>(null);
+  const [rejectionReason, setRejectionReason] = useState('');
+  const [showReverseDialog, setShowReverseDialog] = useState(false);
+  const [reversalReason, setReversalReason] = useState('');
+
+  useEffect(() => {
+    if (documentId) {
+      loadDocument();
+    } else {
+      setDocument(null);
+    }
+  }, [documentId]);
+
+  const loadDocument = async () => {
+    if (!documentId) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await inventoryService.getMovementDocument(documentId);
+      setDocument(data);
+    } catch (err: any) {
+      const message = extractErrorMessage(err, 'Failed to load movement details');
+      setError(message);
+      logger.error('[MovementDetailPanel] Failed to load document', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleApprove = async (approved: boolean, rejectionReason?: string) => {
+    if (!document) return;
+    setError(null);
+    try {
+      // TODO: Implement approveMovement for documents
+      // await inventoryService.approveMovement(document.id, approved, rejectionReason);
+      setShowApproveDialog(false);
+      if (onRefresh) onRefresh();
+      await loadDocument();
+    } catch (err: any) {
+      const message = extractErrorMessage(err, 'Failed to process approval');
+      setError(message);
+      logger.error('[MovementDetailPanel] Failed to approve', err);
+    }
+  };
+
+  const handleReverse = async () => {
+    if (!document || !reversalReason.trim()) return;
+    setError(null);
+    try {
+      // For now, reverse creates a reversal document
+      // TODO: Implement full document reversal with line-level support
+      await inventoryService.reverseMovement(document.id, reversalReason);
+      setShowReverseDialog(false);
+      setReversalReason('');
+      if (onRefresh) onRefresh();
+      await loadDocument();
+    } catch (err: any) {
+      const message = extractErrorMessage(err, 'Failed to reverse movement');
+      setError(message);
+      logger.error('[MovementDetailPanel] Failed to reverse', err);
+    }
+  };
+
+  if (!documentId) {
+    return (
+      <div className="movement-detail-placeholder">
+        <h3>No Movement Selected</h3>
+        <p>Select a movement from the list to view details</p>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return <LoadingState message="Loading movement details..." />;
+  }
+
+  if (error && !document) {
+    return <div className="error-message">{error}</div>;
+  }
+
+  if (!document) {
+    return null;
+  }
+
+  return (
+    <div className="movement-detail-panel">
+      <div className="movement-detail-header">
+        <div>
+          <h2>Movement {document.movementNumber}</h2>
+          <div className="movement-detail-meta">
+            <span className={`status-badge status-${document.status.toLowerCase()}`}>
+              {document.status}
+            </span>
+            <span className="movement-type">{document.movementType}</span>
+          </div>
+        </div>
+        <div className="movement-detail-actions">
+          {document.status === MovementStatus.PENDING && (
+            <>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => setShowApproveDialog(true)}
+              >
+                Approve
+              </Button>
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={() => setShowApproveDialog(true)}
+              >
+                Reject
+              </Button>
+            </>
+          )}
+          {document.status === MovementStatus.COMPLETED && (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setShowReverseDialog(true)}
+            >
+              Reverse
+            </Button>
+          )}
+        </div>
+      </div>
+
+      <div className="movement-detail-tabs">
+        <button
+          className={`tab-button ${activeTab === 'overview' ? 'active' : ''}`}
+          onClick={() => setActiveTab('overview')}
+        >
+          Overview
+        </button>
+        <button
+          className={`tab-button ${activeTab === 'lines' ? 'active' : ''}`}
+          onClick={() => setActiveTab('lines')}
+        >
+          Lines & Tracking
+        </button>
+        <button
+          className={`tab-button ${activeTab === 'audit' ? 'active' : ''}`}
+          onClick={() => setActiveTab('audit')}
+        >
+          Audit
+        </button>
+        <button
+          className={`tab-button ${activeTab === 'reversal' ? 'active' : ''}`}
+          onClick={() => setActiveTab('reversal')}
+        >
+          Reversal
+        </button>
+      </div>
+
+      <div className="movement-detail-content">
+        {activeTab === 'overview' && (
+          <div className="detail-section">
+            <h3>Document Information</h3>
+            <div className="detail-grid">
+              <div>
+                <label>Movement Number</label>
+                <div>{document.movementNumber}</div>
+              </div>
+              <div>
+                <label>Type</label>
+                <div>{document.movementType}</div>
+              </div>
+              <div>
+                <label>Status</label>
+                <div>
+                  <span className={`status-${document.status.toLowerCase()}`}>
+                    {document.status}
+                  </span>
+                </div>
+              </div>
+              <div>
+                <label>Total Lines</label>
+                <div>{document.totalLines}</div>
+              </div>
+              <div>
+                <label>Total Quantity</label>
+                <div>{document.totalQuantity}</div>
+              </div>
+              <div>
+                <label>Requires Approval</label>
+                <div>{document.requiresApproval ? 'Yes' : 'No'}</div>
+              </div>
+            </div>
+
+            <h3>Location Information</h3>
+            <div className="detail-grid">
+              {document.defaultFromLocation && (
+                <div>
+                  <label>Default From Location</label>
+                  <div>
+                    {document.defaultFromLocation.code} - {document.defaultFromLocation.name}
+                  </div>
+                </div>
+              )}
+              {document.defaultToLocation && (
+                <div>
+                  <label>Default To Location</label>
+                  <div>
+                    {document.defaultToLocation.code} - {document.defaultToLocation.name}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <h3>Reason & Notes</h3>
+            <div className="detail-grid">
+              <div>
+                <label>Reason Code</label>
+                <div>{document.reasonCode}</div>
+              </div>
+              {document.reasonDescription && (
+                <div>
+                  <label>Reason Description</label>
+                  <div>{document.reasonDescription}</div>
+                </div>
+              )}
+              {document.documentNotes && (
+                <div>
+                  <label>Document Notes</label>
+                  <div>{document.documentNotes}</div>
+                </div>
+              )}
+            </div>
+
+            <h3>Approval Information</h3>
+            <div className="detail-grid">
+              <div>
+                <label>Created By</label>
+                <div>{document.createdBy.name} ({document.createdBy.email})</div>
+              </div>
+              <div>
+                <label>Created At</label>
+                <div>{new Date(document.createdAt).toLocaleString()}</div>
+              </div>
+              {document.approvedBy && (
+                <>
+                  <div>
+                    <label>Approved By</label>
+                    <div>{document.approvedBy}</div>
+                  </div>
+                  {document.approvedAt && (
+                    <div>
+                      <label>Approved At</label>
+                      <div>{new Date(document.approvedAt).toLocaleString()}</div>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'lines' && (
+          <div className="detail-section">
+            <h3>Movement Lines</h3>
+            <div className="lines-table-container">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Line</th>
+                    <th>Item</th>
+                    <th>Variant</th>
+                    <th>From Location</th>
+                    <th>To Location</th>
+                    <th>Quantity</th>
+                    <th>UoM</th>
+                    <th>Batch/Serial</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {document.lines.map((line) => (
+                    <tr key={line.id}>
+                      <td>{line.lineNo}</td>
+                      <td>{line.item?.name || line.itemId}</td>
+                      <td>{line.variant?.name || '-'}</td>
+                      <td>{line.fromLocation?.code || '-'}</td>
+                      <td>{line.toLocation?.code || '-'}</td>
+                      <td>{line.quantity}</td>
+                      <td>{line.unitOfMeasure}</td>
+                      <td>
+                        {line.batchNumber && <span>Batch: {line.batchNumber}</span>}
+                        {line.serialNumbers && line.serialNumbers.length > 0 && (
+                          <span>Serials: {line.serialNumbers.length}</span>
+                        )}
+                      </td>
+                      <td>
+                        <span className={`status-${line.lineStatus.toLowerCase()}`}>
+                          {line.lineStatus}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'audit' && (
+          <div className="detail-section">
+            <h3>Audit Trail</h3>
+            <div className="audit-timeline">
+              <div className="audit-event">
+                <div className="audit-event-time">{new Date(document.createdAt).toLocaleString()}</div>
+                <div className="audit-event-action">Created</div>
+                <div className="audit-event-user">By {document.createdBy.name}</div>
+              </div>
+              {document.status !== MovementStatus.DRAFT && (
+                <div className="audit-event">
+                  <div className="audit-event-time">
+                    {document.status === MovementStatus.PENDING
+                      ? 'Pending approval'
+                      : document.approvedAt
+                      ? new Date(document.approvedAt).toLocaleString()
+                      : 'N/A'}
+                  </div>
+                  <div className="audit-event-action">
+                    {document.status === MovementStatus.APPROVED || document.status === MovementStatus.COMPLETED
+                      ? 'Approved'
+                      : document.status === MovementStatus.REJECTED
+                      ? 'Rejected'
+                      : 'Status: ' + document.status}
+                  </div>
+                  {document.approvedBy && (
+                    <div className="audit-event-user">By {document.approvedBy}</div>
+                  )}
+                </div>
+              )}
+              {document.status === MovementStatus.COMPLETED && (
+                <div className="audit-event">
+                  <div className="audit-event-time">Executed</div>
+                  <div className="audit-event-action">All lines processed</div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'reversal' && (
+          <div className="detail-section">
+            <h3>Reverse Movement</h3>
+            {document.status === MovementStatus.COMPLETED ? (
+              <div>
+                <p>This will create a reversal movement document that reverses all lines in this movement.</p>
+                <div className="reversal-form">
+                  <label>Reversal Reason *</label>
+                  <textarea
+                    value={reversalReason}
+                    onChange={(e) => setReversalReason(e.target.value)}
+                    placeholder="Enter reason for reversal"
+                    rows={4}
+                  />
+                  <Button
+                    variant="danger"
+                    onClick={() => setShowReverseDialog(true)}
+                    disabled={!reversalReason.trim()}
+                  >
+                    Reverse Movement
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <p>Only completed movements can be reversed.</p>
+            )}
+          </div>
+        )}
+      </div>
+
+      <ConfirmDialog
+        isOpen={showApproveDialog}
+        title={approveAction === 'approve' ? 'Approve Movement' : 'Reject Movement'}
+        message={
+          approveAction === 'approve'
+            ? 'Are you sure you want to approve this movement?'
+            : 'Please provide a reason for rejecting this movement.'
+        }
+        requiresReason={approveAction === 'reject'}
+        onConfirm={(reason) => {
+          handleApprove(approveAction === 'approve', reason);
+          setShowApproveDialog(false);
+          setApproveAction(null);
+          setRejectionReason('');
+        }}
+        onCancel={() => {
+          setShowApproveDialog(false);
+          setApproveAction(null);
+          setRejectionReason('');
+        }}
+        variant={approveAction === 'approve' ? 'primary' : 'danger'}
+      />
+
+      <ConfirmDialog
+        isOpen={showReverseDialog}
+        title="Reverse Movement"
+        message={`Are you sure you want to reverse movement ${document.movementNumber}?`}
+        onConfirm={handleReverse}
+        onCancel={() => {
+          setShowReverseDialog(false);
+          setReversalReason('');
+        }}
+        variant="danger"
+      />
+    </div>
+  );
+};
