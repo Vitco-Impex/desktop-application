@@ -2,7 +2,7 @@
  * Input Component - Minimal, compact UI primitive
  */
 
-import React from 'react';
+import React, { forwardRef } from 'react';
 import './Input.css';
 
 export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
@@ -10,13 +10,13 @@ export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> 
   error?: string;
 }
 
-export const Input: React.FC<InputProps> = ({
+export const Input = forwardRef<HTMLInputElement, InputProps>(({
   label,
   error,
   className = '',
   id,
   ...props
-}) => {
+}, ref) => {
   const inputId = id || `input-${Math.random().toString(36).substr(2, 9)}`;
 
   return (
@@ -27,6 +27,7 @@ export const Input: React.FC<InputProps> = ({
         </label>
       )}
       <input
+        ref={ref}
         id={inputId}
         className={`input ${error ? 'input--error' : ''}`}
         {...props}
@@ -34,5 +35,6 @@ export const Input: React.FC<InputProps> = ({
       {error && <span className="input-error">{error}</span>}
     </div>
   );
-};
+});
+Input.displayName = 'Input';
 

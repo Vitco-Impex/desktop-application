@@ -88,6 +88,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   autoStartProxyIfDesired: (): Promise<{ success: boolean; reason?: string; error?: string; status?: any }> => {
     return ipcRenderer.invoke('proxy:auto-start-if-desired');
   },
+
+  // Force focus window (renderer-initiated focus recovery)
+  forceFocusWindow: (): void => {
+    ipcRenderer.send('force-focus-window');
+  },
 });
 
 // Listen for IPC messages from main process
@@ -96,6 +101,14 @@ ipcRenderer.on('open-logs-viewer', () => {
   // In preload script, we need to use window which is available in renderer context
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('open-logs-viewer'));
+  }
+});
+
+// Listen for window focus recovery IPC from main process
+ipcRenderer.on('window:focus-recovery', () => {
+  // Dispatch custom event for focus recovery
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('window:focus-recovery'));
   }
 });
 

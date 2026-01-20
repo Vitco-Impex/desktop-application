@@ -5,6 +5,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Button } from '@/shared/components/ui';
+import { MovementType } from '@/services/inventory.service';
 import { ItemMaster } from '@/features/inventory/components/ItemMaster';
 import { LocationManagement } from '@/features/inventory/components/LocationManagement';
 import { MovementManagement } from '@/features/inventory/components/MovementManagement';
@@ -94,18 +95,26 @@ export const InventoryPage: React.FC = () => {
 
   React.useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
-      // Ctrl+R for quick receipt
       if (e.ctrlKey && e.key === 'r') {
         e.preventDefault();
+        const p = new URLSearchParams(searchParams);
+        p.set('tab', 'movements');
+        p.set('create', '1');
+        p.set('movementType', MovementType.RECEIPT);
+        p.set('reasonCode', 'RECEIPT');
+        setSearchParams(p);
         setActiveTab('movements');
-        // Trigger quick receipt in MovementManagement component
         window.dispatchEvent(new CustomEvent('quick-receipt'));
       }
-      // Ctrl+T for quick transfer
       if (e.ctrlKey && e.key === 't') {
         e.preventDefault();
+        const p = new URLSearchParams(searchParams);
+        p.set('tab', 'movements');
+        p.set('create', '1');
+        p.set('movementType', MovementType.TRANSFER);
+        p.set('reasonCode', 'TRANSFER');
+        setSearchParams(p);
         setActiveTab('movements');
-        // Trigger quick transfer in MovementManagement component
         window.dispatchEvent(new CustomEvent('quick-transfer'));
       }
     };
@@ -114,7 +123,7 @@ export const InventoryPage: React.FC = () => {
     return () => {
       window.removeEventListener('keydown', handleKeyPress);
     };
-  }, []);
+  }, [searchParams, setSearchParams]);
 
   return (
     <div className="inventory-page">
@@ -127,6 +136,12 @@ export const InventoryPage: React.FC = () => {
           <Button
             variant="primary"
             onClick={() => {
+              const p = new URLSearchParams(searchParams);
+              p.set('tab', 'movements');
+              p.set('create', '1');
+              p.set('movementType', MovementType.RECEIPT);
+              p.set('reasonCode', 'RECEIPT');
+              setSearchParams(p);
               setActiveTab('movements');
               window.dispatchEvent(new CustomEvent('quick-receipt'));
             }}
@@ -137,6 +152,12 @@ export const InventoryPage: React.FC = () => {
           <Button
             variant="secondary"
             onClick={() => {
+              const p = new URLSearchParams(searchParams);
+              p.set('tab', 'movements');
+              p.set('create', '1');
+              p.set('movementType', MovementType.TRANSFER);
+              p.set('reasonCode', 'TRANSFER');
+              setSearchParams(p);
               setActiveTab('movements');
               window.dispatchEvent(new CustomEvent('quick-transfer'));
             }}

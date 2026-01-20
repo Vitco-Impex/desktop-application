@@ -2,7 +2,7 @@
  * Movement Summary Panel - Sticky right panel with totals, validation, and actions
  */
 
-import React, { useState } from 'react';
+import React, { useState, forwardRef } from 'react';
 import { Button } from '@/shared/components/ui';
 import './MovementSummaryPanel.css';
 
@@ -29,7 +29,12 @@ interface MovementSummaryPanelProps {
   impactErrors?: string[];
 }
 
-export const MovementSummaryPanel: React.FC<MovementSummaryPanelProps> = ({
+export interface MovementSummaryPanelHandle {
+  clickSaveDraft: () => void;
+  clickSubmit: () => void;
+}
+
+export const MovementSummaryPanel = forwardRef<MovementSummaryPanelHandle, MovementSummaryPanelProps>(({
   totalLines,
   totalQuantity,
   errors,
@@ -42,9 +47,16 @@ export const MovementSummaryPanel: React.FC<MovementSummaryPanelProps> = ({
   loading,
   stockImpact = [],
   impactErrors = [],
-}) => {
+}, ref) => {
   const allErrors = [...errors, ...impactErrors];
   const [impactOpen, setImpactOpen] = useState(false);
+  const saveDraftButtonRef = React.useRef<HTMLButtonElement>(null);
+  const submitButtonRef = React.useRef<HTMLButtonElement>(null);
+
+  React.useImperativeHandle(ref, () => ({
+    clickSaveDraft: () => saveDraftButtonRef.current?.click(),
+    clickSubmit: () => submitButtonRef.current?.click(),
+  }));
 
   return (
     <div className="movement-summary-panel">
@@ -135,6 +147,7 @@ export const MovementSummaryPanel: React.FC<MovementSummaryPanelProps> = ({
 
       <div className="summary-actions">
         <Button
+          ref={saveDraftButtonRef}
           variant="secondary"
           onClick={onSaveDraft}
           disabled={loading || allErrors.length > 0}
@@ -151,6 +164,7 @@ export const MovementSummaryPanel: React.FC<MovementSummaryPanelProps> = ({
           Validate
         </Button>
         <Button
+          ref={submitButtonRef}
           variant="primary"
           onClick={onSubmit}
           disabled={loading || allErrors.length > 0}
@@ -169,4 +183,6 @@ export const MovementSummaryPanel: React.FC<MovementSummaryPanelProps> = ({
       </div>
     </div>
   );
-};
+});
+
+MovementSummaryPanel.displayName = 'MovementSummaryPanel';

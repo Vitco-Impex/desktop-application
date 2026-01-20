@@ -1,0 +1,245 @@
+/**
+ * NumberGrid styles. Reuses batch table styles (duplicated from BatchSerialEditor).
+ */
+
+.number-grid-modal .modal-content {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+}
+
+.number-grid-body {
+  padding: 16px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.number-grid-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--color-border, #e0e0e0);
+  flex-shrink: 0;
+}
+
+.number-grid-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+  color: var(--color-text-secondary, #666);
+}
+
+.number-grid-errors {
+  color: var(--color-error, #c00);
+  font-size: 12px;
+}
+
+.number-grid-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* Serial INPUT */
+.number-grid-serial-input {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.number-grid-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.number-grid-field label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-secondary, #555);
+}
+
+.number-grid-textarea {
+  font-family: inherit;
+  font-size: 13px;
+  padding: 8px 10px;
+  border: 1px solid var(--color-border, #d0d0d0);
+  border-radius: 4px;
+  resize: vertical;
+  min-height: 120px;
+}
+
+.number-grid-textarea:focus {
+  outline: none;
+  border-color: var(--color-primary, #0066cc);
+  box-shadow: 0 0 0 2px rgba(0, 102, 204, 0.2);
+}
+
+.number-grid-serial-list {
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid var(--color-border, #e0e0e0);
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.number-grid-serial-list-header {
+  padding: 6px 8px;
+  background: #f5f5f5;
+  font-weight: 600;
+  border-bottom: 1px solid var(--color-border, #e0e0e0);
+}
+
+.number-grid-serial-row {
+  display: grid;
+  grid-template-columns: 32px 1fr 80px;
+  gap: 8px;
+  padding: 4px 8px;
+  border-bottom: 1px solid #f0f0f0;
+  align-items: center;
+}
+
+.number-grid-serial-row .num { color: #888; }
+.number-grid-serial-row .serial { font-family: monospace; }
+.number-grid-serial-row .status-valid { color: green; }
+.number-grid-serial-row .status-new { color: #06c; }
+.number-grid-serial-row .status-checking { color: #888; }
+.number-grid-serial-row .status-not_found,
+.number-grid-serial-row .status-not_in_location,
+.number-grid-serial-row .status-blocked,
+.number-grid-serial-row .status-used,
+.number-grid-serial-row .status-already_exists,
+.number-grid-serial-row .status-duplicate { color: var(--color-error, #c00); }
+
+/* Serial SELECT */
+.number-grid-serial-select {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.number-grid-serial-select-list {
+  max-height: 280px;
+  overflow-y: auto;
+  border: 1px solid var(--color-border, #e0e0e0);
+  border-radius: 4px;
+  padding: 4px;
+}
+
+.number-grid-serial-select-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.number-grid-serial-select-row:hover {
+  background: #f5f5f5;
+}
+
+.number-grid-serial-select-row .serial { font-family: monospace; flex: 1; }
+.number-grid-serial-select-row .loc { font-size: 11px; color: #888; }
+
+.number-grid-empty {
+  padding: 16px;
+  text-align: center;
+  color: #888;
+  font-size: 13px;
+}
+
+/* BATCH – reuse BatchSerialEditor table styles */
+.number-grid-batch {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.batch-table-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.batch-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.batch-table thead {
+  background-color: #f5f5f5;
+}
+
+.batch-table th {
+  padding: 8px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  color: #666;
+  border-bottom: 2px solid #e0e0e0;
+}
+
+.batch-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid #e0e0e0;
+  vertical-align: top;
+}
+
+.batch-table tbody tr:hover {
+  background-color: #f9f9f9;
+}
+
+.batch-table tfoot {
+  background-color: #f9f9f9;
+  font-weight: 600;
+}
+
+.batch-table tfoot td {
+  border-top: 2px solid #e0e0e0;
+  padding: 8px;
+}
+
+.batch-row-remove {
+  background: none;
+  border: none;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  color: #999;
+  padding: 0 4px;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.batch-row-remove:hover:not(:disabled) {
+  color: #c00;
+}
+
+.batch-row-remove:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.batch-add-row {
+  background: #f0f0f0;
+  border: 1px dashed #ccc;
+  border-radius: 4px;
+  padding: 6px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  color: #555;
+  align-self: flex-start;
+}
+
+.batch-add-row:hover {
+  background: #e0e0e0;
+  border-color: #999;
+}

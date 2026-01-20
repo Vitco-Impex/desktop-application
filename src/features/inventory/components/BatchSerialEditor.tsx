@@ -1,5 +1,8 @@
 /**
- * BatchSerialEditor - Modal for entering batch or serial data on movement lines
+ * @deprecated Use NumberGrid instead. BatchSerialEditor is superseded by the unified
+ * NumberGrid component which supports INPUT/SELECT mode, SERIAL/BATCH tracking, and
+ * all movement types. Kept for potential backward compatibility during transition.
+ *
  * Batch: Batch No, MFG Date, Expiry Date, Quantity (locked to line qty)
  * Serial: Enter/paste serial numbers; count must equal line quantity; uniqueness enforced
  */
@@ -65,6 +68,10 @@ export const BatchSerialEditor: React.FC<BatchSerialEditorProps> = ({
   initial,
   onSave,
   onClose,
+  itemId,
+  fromLocationId,
+  fetchAvailableForBatch,
+  existingSerials,
 }) => {
   const [batchNumber, setBatchNumber] = useState(initial?.batchNumber ?? '');
   const [manufacturingDate, setManufacturingDate] = useState(initial?.manufacturingDate ?? '');
@@ -81,6 +88,8 @@ export const BatchSerialEditor: React.FC<BatchSerialEditorProps> = ({
   const serialCountOk = serials.length === lineQuantity;
   const duplicateSerials = getDuplicateSerials(serials);
   const serialDuplicatesOk = duplicateSerials.length === 0;
+  const serialDuplicatesAcrossDoc = (existingSerials ?? []).filter((s) => serials.includes(s));
+  const serialDuplicatesAcrossDocOk = serialDuplicatesAcrossDoc.length === 0;
 
   // Date validation
   const today = new Date().toISOString().slice(0, 10);
@@ -94,75 +103,21 @@ export const BatchSerialEditor: React.FC<BatchSerialEditorProps> = ({
     mfgValid &&
     expiryValid;
 
-  const canSaveSerial = serialCountOk && serialDuplicatesOk && lineQuantity > 0;
-
-  const handleBatchNoBlur = useCallback(
-    async (rowIndex: number, batchNumber: string) => {
-      if (!itemId || !fromLocationId || !fetchAvailableForBatch || !batchNumber.trim()) {
-        return;
-      }
-      setFetchingAvailable((prev) => ({ ...prev, [rowIndex]: true }));
-      try {
-        const available = await fetchAvailableForBatch(itemId, fromLocationId, batchNumber.trim());
-        setAvailableByRowIndex((prev) => ({ ...prev, [rowIndex]: available }));
-      } catch (err) {
-        // Ignore fetch errors; validation will still work
-      } finally {
-        setFetchingAvailable((prev) => ({ ...prev, [rowIndex]: false }));
-      }
-    },
-    [itemId, fromLocationId, fetchAvailableForBatch]
-  );
-
-  const addBatchRow = useCallback(() => {
-    setBatchRows([...batchRows, { batchNumber: '', manufacturingDate: '', expiryDate: '', quantity: 0 }]);
-  }, [batchRows]);
-
-  const removeBatchRow = useCallback(
-    (index: number) => {
-      if (batchRows.length <= 1) return;
-      const newRows = batchRows.filter((_, i) => i !== index);
-      setBatchRows(newRows);
-      const newAvailable: Record<number, number> = {};
-      newRows.forEach((_, i) => {
-        if (availableByRowIndex[i] != null) {
-          newAvailable[i] = availableByRowIndex[i];
-        }
-      });
-      setAvailableByRowIndex(newAvailable);
-    },
-    [batchRows, availableByRowIndex]
-  );
-
-  const updateBatchRow = useCallback(
-    (index: number, updates: Partial<BatchRow>) => {
-      const newRows = [...batchRows];
-      newRows[index] = { ...newRows[index], ...updates };
-      setBatchRows(newRows);
-    },
-    [batchRows]
-  );
+  const canSaveSerial = serialCountOk && serialDuplicatesOk && serialDuplicatesAcrossDocOk && lineQuantity > 0;
 
   const handleSave = useCallback(() => {
     if (mode === 'batch' && canSaveBatch) {
-      const sum = batchRows.reduce((s, r) => s + (r.quantity || 0), 0);
       onSave({
-        batchRows: batchRows.map((r) => ({
-          batchNumber: r.batchNumber.trim(),
-          manufacturingDate: r.manufacturingDate || undefined,
-          expiryDate: r.expiryDate || undefined,
-          quantity: r.quantity || 0,
-        })),
-        batchNumber: batchRows[0]?.batchNumber?.trim(),
-        manufacturingDate: batchRows[0]?.manufacturingDate || undefined,
-        expiryDate: batchRows[0]?.expiryDate || undefined,
-        quantity: sum,
+        batchNumber: batchNumber.trim(),
+        manufacturingDate: manufacturingDate || undefined,
+        expiryDate: expiryDate || undefined,
+        quantity: lineQuantity,
       });
     } else if (mode === 'serial' && canSaveSerial) {
       onSave({ serialNumbers: serials, quantity: serials.length });
     }
     onClose();
-  }, [mode, canSaveBatch, canSaveSerial, batchRows, serials, onSave, onClose]);
+  }, [mode, canSaveBatch, canSaveSerial, batchNumber, manufacturingDate, expiryDate, lineQuantity, serials, onSave, onClose]);
 
   // Close on Escape
   useEffect(() => {

@@ -25,6 +25,19 @@ let tray: Tray | null = null;
 
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
 
+// Optional: Disable hardware acceleration if GPU issues occur
+// Set DISABLE_GPU=1 or ELECTRON_DISABLE_HW_ACCELERATION=1 environment variable to enable
+if (process.env.DISABLE_GPU === '1' || process.env.ELECTRON_DISABLE_HW_ACCELERATION === '1') {
+  app.disableHardwareAcceleration();
+  console.log('[Main] Hardware acceleration disabled via environment variable');
+}
+
+// Windows-specific: Chromium occlusion fix for focus/input routing
+// This must be called before app.whenReady()
+if (process.platform === 'win32') {
+  app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion');
+}
+
 // Suppress Electron/Chromium cache errors on Windows
 // These are harmless permission warnings that can be safely ignored
 if (process.platform === 'win32') {
@@ -84,12 +97,15 @@ function createWindow(): void {
     height: 800,
     minWidth: 800,
     minHeight: 600,
+    show: false, // Don't show until ready-to-show to avoid blank window flash
+    focusable: true, // Ensure window can receive focus
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
       preload: path.join(__dirname, 'preload.js'),
       webSecurity: true, // Keep security enabled
       devTools: isDev, // Only allow DevTools in development
+      backgroundThrottling: false, // Prevent renderer from becoming inactive and losing input routing
     },
     titleBarStyle: 'default',
     autoHideMenuBar: true, // Hide the menu bar
@@ -153,6 +169,41 @@ function createWindow(): void {
   mainWindow.webContents.openDevTools();
   }
 
+  // Handle ready-to-show: show window only when content is ready (prevents blank window flash)
+  // Do NOT send window:focus-recovery here - only on explicit recovery triggers
+  mainWindow.once('ready-to-show', () => {
+    // If --hidden flag is set (for auto-start), keep window hidden
+    if (!process.argv.includes('--hidden')) {
+      if (mainWindow) {
+        mainWindow.show();
+        mainWindow.focus();
+        mainWindow.webContents.focus();
+        // Do NOT send 'window:focus-recovery' here - this is normal window creation, not recovery
+      }
+    }
+  });
+
+  // Handle window show event: OS handles show events correctly, no recovery needed
+  mainWindow.on('show', () => {
+    // Do nothing - OS handles show events correctly
+    // We do not treat show as a trigger for focus recovery
+  });
+
+  // Handle window focus event: passive webContents focus only, no recovery signal
+  mainWindow.on('focus', () => {
+    // Passive webContents focus only - normal focus events should not drive "repair"
+    // Repair is for broken states, not normal OS focus events
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.focus();
+      // Do NOT send 'window:focus-recovery' here - this is normal focus, not recovery
+    }
+  });
+
+  // Handle window blur event: track that we lost focus (for diagnostics)
+  mainWindow.on('blur', () => {
+    // No logic needed - optional: set a "hadFocus" flag for diagnostics only
+  });
+
   // Handle window close - hide to tray instead of closing
   mainWindow.on('close', (event) => {
     if (!appIsQuitting && !isCheckingOut) {
@@ -189,8 +240,7 @@ function createTray(): void {
       label: 'Show Busiman Desktop',
       click: () => {
         if (mainWindow) {
-          mainWindow.show();
-          mainWindow.focus();
+          runNonVisualFocusRecovery();
         } else {
           createWindow();
         }
@@ -203,10 +253,11 @@ function createTray(): void {
       label: 'View System Logs',
       click: () => {
         if (mainWindow) {
-          mainWindow.show();
-          mainWindow.focus();
+          runNonVisualFocusRecovery();
           // Send IPC message to open logs viewer
-          mainWindow.webContents.send('open-logs-viewer');
+          setImmediate(() => {
+            mainWindow?.webContents?.send('open-logs-viewer');
+          });
         } else {
           createWindow();
           // Wait for window to load, then send message
@@ -250,14 +301,35 @@ function createTray(): void {
         if (mainWindow.isVisible()) {
           mainWindow.hide();
         } else {
-          mainWindow.show();
-          mainWindow.focus();
+          runNonVisualFocusRecovery();
         }
       } else {
         createWindow();
       }
     });
   }
+}
+
+// Helper function to refocus window after native dialogs
+// Non-visual focus recovery: show, setFocusable, focus, webContents.focus, signal renderer
+// Never use moveTop() or setAlwaysOnTop() - these cause window switching animations
+function refocusWindowAfterDialog(): void {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  mainWindow.show(); // only has effect if hidden/minimized
+  mainWindow.setFocusable(true);
+  mainWindow.focus();
+  mainWindow.webContents.focus();
+  mainWindow.webContents.send('window:focus-recovery');
+}
+
+// Shared helper for non-visual focus recovery (used by tray, second-instance, activate, IPC)
+function runNonVisualFocusRecovery(): void {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  mainWindow.show(); // only has effect if hidden/minimized
+  mainWindow.setFocusable(true);
+  mainWindow.focus();
+  mainWindow.webContents.focus();
+  mainWindow.webContents.send('window:focus-recovery');
 }
 
 // Disable hardware acceleration if causing issues (uncomment if needed)
@@ -470,7 +542,7 @@ async function showCheckoutDialogForSleep(): Promise<void> {
       mainWindow.show();
     }
     mainWindow.focus();
-    mainWindow.moveTop(); // Bring to front
+    // Do NOT use moveTop() - causes window switching animation
   }
 
   try {
@@ -489,6 +561,9 @@ async function showCheckoutDialogForSleep(): Promise<void> {
     const dialogResult = mainWindow
       ? await dialog.showMessageBox(mainWindow, dialogOptions)
       : await dialog.showMessageBox(dialogOptions);
+
+    // Refocus window after dialog closes
+    refocusWindowAfterDialog();
 
     if (dialogResult.response === 0) {
       // User selected "Check Out"
@@ -512,6 +587,8 @@ async function showCheckoutDialogForSleep(): Promise<void> {
     console.error('[AutoCheckout] Dialog error during sleep:', error);
     // On error, stop blocker and allow sleep
     stopSleepBlocker();
+    // Refocus window even on error
+    refocusWindowAfterDialog();
   }
 }
 
@@ -707,6 +784,9 @@ async function showCheckoutDialog(trigger: 'shutdown' | 'logout'): Promise<void>
       ? await dialog.showMessageBox(mainWindow, dialogOptions)
       : await dialog.showMessageBox(dialogOptions);
 
+    // Refocus window after dialog closes
+    refocusWindowAfterDialog();
+
     if (dialogResult.response === 0) {
       // User selected "Check Out"
       await performCheckoutOnShutdown(trigger);
@@ -720,6 +800,8 @@ async function showCheckoutDialog(trigger: 'shutdown' | 'logout'): Promise<void>
     console.error('[AutoCheckout] Dialog error:', error);
     // On error, allow shutdown
     allowShutdown();
+    // Refocus window even on error
+    refocusWindowAfterDialog();
   }
 }
 
@@ -776,13 +858,15 @@ async function performCheckoutOnShutdown(trigger: 'shutdown' | 'logout'): Promis
           console.error(`[AutoCheckout] Check-out failed: ${checkoutResult.reason}`);
           // Show error but allow shutdown
           if (mainWindow) {
-            dialog.showMessageBox(mainWindow, {
+            await dialog.showMessageBox(mainWindow, {
               type: 'warning',
               title: 'Check-out Failed',
               message: `Check-out failed: ${checkoutResult.reason}`,
               detail: 'The system will shut down anyway. You may need to manually check out later.',
               buttons: ['OK'],
             });
+            // Refocus window after dialog closes
+            refocusWindowAfterDialog();
           }
           // Store pending checkout state only if it's a real error
           const sessionState = storageService.getLastSessionState();
@@ -864,8 +948,10 @@ async function checkRecoveryCheckout(): Promise<void> {
             if (!mainWindow.isVisible()) {
               mainWindow.show();
             }
+            mainWindow.setFocusable(true);
             mainWindow.focus();
-            mainWindow.moveTop();
+            mainWindow.webContents.focus();
+            // Do NOT use moveTop() - causes window switching animation
           }
 
           // Show dialog asking user if they want to check out
@@ -883,6 +969,9 @@ async function checkRecoveryCheckout(): Promise<void> {
           const dialogResult = mainWindow
             ? await dialog.showMessageBox(mainWindow, dialogOptions)
             : await dialog.showMessageBox(dialogOptions);
+
+          // Refocus window after dialog closes
+          refocusWindowAfterDialog();
 
           if (dialogResult.response === 0) {
             // User selected "Check Out"
@@ -925,12 +1014,14 @@ async function checkRecoveryCheckout(): Promise<void> {
               console.error(`[AutoCheckout] Recovery check-out failed: ${result.reason}`);
               // Show error to user
               if (mainWindow) {
-                dialog.showMessageBox(mainWindow, {
+                await dialog.showMessageBox(mainWindow, {
                   type: 'error',
                   title: 'Check-out Failed',
                   message: `Check-out failed: ${result.reason}`,
                   buttons: ['OK'],
                 });
+                // Refocus window after dialog closes
+                refocusWindowAfterDialog();
               }
             }
           } else {
@@ -1003,8 +1094,10 @@ function setupAutoUpdater(): void {
       mainWindow.show();
       mainWindow.restore();
     }
+    mainWindow.setFocusable(true);
     mainWindow.focus();
-    mainWindow.moveTop();
+    mainWindow.webContents.focus();
+    // Do NOT use moveTop() - causes window switching animation
 
     dialog
       .showMessageBox(mainWindow, {
@@ -1017,6 +1110,8 @@ function setupAutoUpdater(): void {
         cancelId: 1,
       })
       .then((result) => {
+        // Refocus window after dialog closes
+        refocusWindowAfterDialog();
         if (result.response === 0) {
           console.log('[AutoUpdater] User chose to download update');
           autoUpdater.downloadUpdate();
@@ -1026,6 +1121,8 @@ function setupAutoUpdater(): void {
       })
       .catch((error) => {
         console.error('[AutoUpdater] Error showing update dialog:', error);
+        // Refocus window even on error
+        refocusWindowAfterDialog();
       });
   });
 
@@ -1044,8 +1141,10 @@ function setupAutoUpdater(): void {
       mainWindow.show();
       mainWindow.restore();
     }
+    mainWindow.setFocusable(true);
     mainWindow.focus();
-    mainWindow.moveTop();
+    mainWindow.webContents.focus();
+    // Do NOT use moveTop() - causes window switching animation
 
     dialog
       .showMessageBox(mainWindow, {
@@ -1058,6 +1157,8 @@ function setupAutoUpdater(): void {
         cancelId: 1,
       })
       .then((result) => {
+        // Refocus window after dialog closes
+        refocusWindowAfterDialog();
         if (result.response === 0) {
           console.log('[AutoUpdater] User chose to restart now');
           autoUpdater.quitAndInstall(false, true);
@@ -1067,6 +1168,8 @@ function setupAutoUpdater(): void {
       })
       .catch((error) => {
         console.error('[AutoUpdater] Error showing update ready dialog:', error);
+        // Refocus window even on error
+        refocusWindowAfterDialog();
       });
   });
 
@@ -1100,8 +1203,7 @@ if (!gotTheLock) {
       if (mainWindow.isMinimized()) {
         mainWindow.restore();
       }
-      mainWindow.show();
-      mainWindow.focus();
+      runNonVisualFocusRecovery();
     } else {
       // Window was destroyed, create a new one
       createWindow();
@@ -1170,8 +1272,7 @@ if (!gotTheLock) {
         if (mainWindow.isMinimized()) {
           mainWindow.restore();
         }
-        mainWindow.show();
-        mainWindow.focus();
+        runNonVisualFocusRecovery();
       }
     });
   });
@@ -1529,6 +1630,11 @@ async function getCurrentWifiLocal(): Promise<WifiInfo> {
 
 // Register IPC handlers for network detection
 // These use the utility functions from network.util.ts
+
+// IPC handler for renderer-initiated focus recovery
+ipcMain.on('force-focus-window', () => {
+  runNonVisualFocusRecovery();
+});
 
 ipcMain.handle('get-current-wifi', async (): Promise<WifiInfo> => {
   return getCurrentWifi();

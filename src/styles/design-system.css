@@ -260,6 +260,15 @@ a:hover {
   pointer-events: none;
 }
 
+/* Overlay Safeguards: Ensure hidden overlays cannot block pointer events */
+/* This prevents invisible full-screen layers from blocking clicks when overlays are hidden */
+[aria-hidden="true"].modal-overlay,
+[aria-hidden="true"].side-drawer-overlay,
+[aria-hidden="true"].batch-serial-editor-overlay,
+[data-overlay][aria-hidden="true"] {
+  pointer-events: none !important;
+}
+
 /* Utility Classes */
 .text-primary { color: var(--color-text-primary); }
 .text-secondary { color: var(--color-text-secondary); }

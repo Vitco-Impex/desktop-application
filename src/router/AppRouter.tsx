@@ -6,6 +6,7 @@
 import React, { useEffect, lazy, Suspense } from 'react';
 import { HashRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { ProtectedRoute, DashboardRedirect } from '@/shared/components/routing';
+import { NavigationFocusHandler } from '@/shared/components/routing/NavigationFocusHandler';
 import { AppLayout } from '@/shared/components/layout';
 import { UserRole } from '@/types';
 
@@ -65,6 +66,7 @@ export const AppRouter: React.FC = () => {
   return (
     <HashRouter>
       <LogsViewerHandler />
+      <NavigationFocusHandler />
       <Suspense fallback={<PageLoader />}>
         <Routes>
           {/* Public Routes */}

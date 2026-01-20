@@ -2,7 +2,7 @@
  * Select Component - Dropdown select
  */
 
-import React from 'react';
+import React, { forwardRef } from 'react';
 import './Select.css';
 
 export interface SelectOption {
@@ -18,7 +18,7 @@ export interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElemen
   placeholder?: string;
 }
 
-export const Select: React.FC<SelectProps> = ({
+export const Select = forwardRef<HTMLSelectElement, SelectProps>(({
   label,
   error,
   className = '',
@@ -27,7 +27,7 @@ export const Select: React.FC<SelectProps> = ({
   placeholder,
   children,
   ...props
-}) => {
+}, ref) => {
   const selectId = id || `select-${Math.random().toString(36).substr(2, 9)}`;
 
   return (
@@ -38,6 +38,7 @@ export const Select: React.FC<SelectProps> = ({
         </label>
       )}
       <select
+        ref={ref}
         id={selectId}
         className={`select ${error ? 'select--error' : ''}`}
         {...props}
@@ -56,4 +57,5 @@ export const Select: React.FC<SelectProps> = ({
       {error && <span className="select-error">{error}</span>}
     </div>
   );
-};
+});
+Select.displayName = 'Select';

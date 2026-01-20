@@ -2,7 +2,7 @@
  * Movement Management Component - Manage stock movements
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
   inventoryService,
@@ -206,6 +206,13 @@ export const MovementManagement: React.FC = () => {
     }
   };
 
+  const handleCreateMovement = useCallback(() => {
+    const p = new URLSearchParams(searchParams);
+    p.set('create', '1');
+    setSearchParams(p);
+    setViewMode('create');
+  }, [searchParams, setSearchParams]);
+
   useEffect(() => {
     loadMovements();
     loadItems();
@@ -229,28 +236,24 @@ export const MovementManagement: React.FC = () => {
   useEffect(() => {
     const handleQuickReceipt = () => {
       setMovementSubTab('transactions');
+      const p = new URLSearchParams(searchParams);
+      p.set('tab', 'movements');
+      p.set('create', '1');
+      p.set('movementType', MovementType.RECEIPT);
+      p.set('reasonCode', 'RECEIPT');
+      setSearchParams(p);
       setViewMode('create');
-      setFormData({
-        movementType: MovementType.RECEIPT,
-        itemId: '',
-        quantity: 0,
-        unitOfMeasure: 'pcs',
-        reasonCode: '',
-        requiresApproval: false,
-      });
     };
 
     const handleQuickTransfer = () => {
       setMovementSubTab('transactions');
+      const p = new URLSearchParams(searchParams);
+      p.set('tab', 'movements');
+      p.set('create', '1');
+      p.set('movementType', MovementType.TRANSFER);
+      p.set('reasonCode', 'TRANSFER');
+      setSearchParams(p);
       setViewMode('create');
-      setFormData({
-        movementType: MovementType.TRANSFER,
-        itemId: '',
-        quantity: 0,
-        unitOfMeasure: 'pcs',
-        reasonCode: '',
-        requiresApproval: false,
-      });
     };
 
     window.addEventListener('quick-receipt', handleQuickReceipt);
@@ -260,7 +263,32 @@ export const MovementManagement: React.FC = () => {
       window.removeEventListener('quick-receipt', handleQuickReceipt);
       window.removeEventListener('quick-transfer', handleQuickTransfer);
     };
-  }, []);
+  }, [searchParams]);
+
+  // Open Create when URL has create=1
+  useEffect(() => {
+    if (searchParams.get('create') === '1') {
+      setMovementSubTab('transactions');
+      setViewMode('create');
+    }
+  }, [searchParams.get('create')]);
+
+  // Ctrl+A: Create Movement (when in transactions list; skip when focus is in input/textarea/select)
+  useEffect(() => {
+    if (viewMode !== 'list' || movementSubTab !== 'transactions') return;
+    if (typeof document === 'undefined' || !document) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.key === 'a') {
+        const el = document.activeElement;
+        const tag = el?.tagName?.toLowerCase();
+        if (['input', 'textarea', 'select'].includes(tag || '') || (el as HTMLElement)?.isContentEditable) return;
+        e.preventDefault();
+        handleCreateMovement();
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [viewMode, movementSubTab, handleCreateMovement]);
 
   useEffect(() => {
     if (viewMode === 'list') {
@@ -1740,16 +1768,11 @@ export const MovementManagement: React.FC = () => {
         <ResizableSplitPane
           left={
             <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-              <div style={{ padding: '16px', borderBottom: '1px solid #e0e0e0' }}>
-                <Button variant="primary" onClick={() => setViewMode('create')}>
-                  Create Movement
-                </Button>
-              </div>
               <div style={{ flex: 1, overflow: 'auto' }}>
                 <MovementList
                   onSelectMovement={setSelectedDocumentId}
                   selectedDocumentId={selectedDocumentId || undefined}
-                  key={viewMode === 'list' ? 'list' : 'list-refresh'} // Force refresh when returning to list
+                  onCreateMovement={handleCreateMovement}
                 />
               </div>
             </div>
@@ -1758,16 +1781,14 @@ export const MovementManagement: React.FC = () => {
             <MovementDetailPanel
               documentId={selectedDocumentId}
               onClose={() => setSelectedDocumentId(null)}
-              onRefresh={() => {
-                // Refresh list if needed
-                setSelectedDocumentId(null);
-              }}
+              onRefresh={() => setSelectedDocumentId(null)}
             />
           }
           storageKey="movement-list-detail-split"
-          defaultLeftPercent={55}
+          defaultLeftPercent={90}
+          leftMaxPercent={100}
           leftMin={300}
-          rightMin={400}
+          rightMin={100}
         />
       )}
       {viewMode === 'list' && movementSubTab === 'counting' && renderCountingView()}
@@ -1784,10 +1805,12 @@ export const MovementManagement: React.FC = () => {
               variant="primary"
               onClick={() => {
                 setMovementSubTab('transactions');
+                const p = new URLSearchParams(searchParams);
+                p.set('create', '1');
+                p.set('movementType', MovementType.ADJUSTMENT);
+                p.set('reasonCode', 'ADJUSTMENT');
+                setSearchParams(p);
                 setViewMode('create');
-                const newParams = new URLSearchParams(searchParams);
-                newParams.set('movementType', MovementType.ADJUSTMENT);
-                window.history.replaceState({}, '', `?${newParams.toString()}`);
               }}
             >
               Create Adjustment Movement
@@ -1861,29 +1884,47 @@ export const MovementManagement: React.FC = () => {
         <CreateMovementView
           onCancel={() => {
             setViewMode('list');
-            // Clear movement-related params
-            const newParams = new URLSearchParams(searchParams);
-            newParams.delete('create');
-            newParams.delete('movementType');
-            newParams.delete('itemId');
-            newParams.delete('variantId');
-            newParams.delete('fromLocationId');
-            newParams.delete('toLocationId');
-            setSearchParams(newParams);
+            setSelectedDocumentId(null);
+            const returnTab = searchParams.get('returnTab');
+            const p = new URLSearchParams();
+            if (returnTab) {
+              p.set('tab', returnTab);
+              const returnItemId = searchParams.get('returnItemId');
+              const returnVariantId = searchParams.get('returnVariantId');
+              const returnSubTab = searchParams.get('returnSubTab');
+              const returnLocationId = searchParams.get('returnLocationId');
+              const returnCountId = searchParams.get('returnCountId');
+              if (returnItemId) p.set('itemId', returnItemId);
+              if (returnVariantId) p.set('variantId', returnVariantId);
+              if (returnSubTab) p.set(returnTab === 'items' ? 'itemSubTab' : returnTab === 'locations' ? 'locationSubTab' : 'returnSubTab', returnSubTab);
+              if (returnLocationId) p.set('locationId', returnLocationId);
+              if (returnCountId) p.set('returnCountId', returnCountId);
+            } else {
+              p.set('tab', 'movements');
+            }
+            setSearchParams(p);
           }}
           onSuccess={() => {
             setViewMode('list');
             setSelectedDocumentId(null);
-            // Clear movement-related params
-            const newParams = new URLSearchParams(searchParams);
-            newParams.delete('create');
-            newParams.delete('movementType');
-            newParams.delete('itemId');
-            newParams.delete('variantId');
-            newParams.delete('fromLocationId');
-            newParams.delete('toLocationId');
-            setSearchParams(newParams);
-            // Refresh list will happen via useEffect
+            const returnTab = searchParams.get('returnTab');
+            const p = new URLSearchParams();
+            if (returnTab) {
+              p.set('tab', returnTab);
+              const returnItemId = searchParams.get('returnItemId');
+              const returnVariantId = searchParams.get('returnVariantId');
+              const returnSubTab = searchParams.get('returnSubTab');
+              const returnLocationId = searchParams.get('returnLocationId');
+              const returnCountId = searchParams.get('returnCountId');
+              if (returnItemId) p.set('itemId', returnItemId);
+              if (returnVariantId) p.set('variantId', returnVariantId);
+              if (returnSubTab) p.set(returnTab === 'items' ? 'itemSubTab' : returnTab === 'locations' ? 'locationSubTab' : 'returnSubTab', returnSubTab);
+              if (returnLocationId) p.set('locationId', returnLocationId);
+              if (returnCountId) p.set('returnCountId', returnCountId);
+            } else {
+              p.set('tab', 'movements');
+            }
+            setSearchParams(p);
           }}
           prefillData={{
             movementType: searchParams.get('movementType') as MovementType | undefined,
@@ -1891,6 +1932,8 @@ export const MovementManagement: React.FC = () => {
             variantId: searchParams.get('variantId') || undefined,
             fromLocationId: searchParams.get('fromLocationId') || undefined,
             toLocationId: searchParams.get('toLocationId') || undefined,
+            reasonCode: searchParams.get('reasonCode') || undefined,
+            reasonLocked: searchParams.get('reasonLocked') === '1' || searchParams.get('reasonLocked') === 'true',
           }}
         />
       )}

@@ -3,13 +3,18 @@
  */
 
 import React, { useState, useRef, useEffect, useImperativeHandle, forwardRef } from 'react';
-import { MovementLineRequest, MovementType, InventoryItem, Location } from '@/services/inventory.service';
+import { MovementLineRequest, MovementType, InventoryItem, Location, inventoryService } from '@/services/inventory.service';
+import type { SerialResponse } from '@/services/inventory.service';
 import { Button, Input, Select } from '@/shared/components/ui';
-import { BatchSerialEditor, type BatchSerialMode, type BatchSerialValues } from './BatchSerialEditor';
+import { confirmWithFocusRecovery } from '@/shared/utils/dialog';
+import { getNumberGridMode } from '../utils/numberGridUtils';
+import type { BatchRow } from '../utils/numberGridUtils';
+import { NumberGrid } from './NumberGrid';
 import './MovementLinesGrid.css';
 
 export interface MovementLinesGridHandle {
   focusErrorLineNext: (fromRow: number) => void;
+  focusFirstItemSelect: () => void;
 }
 
 export interface LineValidation {
@@ -37,29 +42,34 @@ interface MovementLinesGridProps {
   onBatchSerialOpenChange?: (index: number | null) => void;
 }
 
-export const MovementLinesGrid = forwardRef<MovementLinesGridHandle, MovementLinesGridProps>(({
-  lines,
-  onChange,
-  items,
-  locations,
-  defaultFromLocationId,
-  defaultToLocationId,
-  movementType,
-  stockMap = {},
-  lineValidations = {},
-  fetchAvailableForBatch,
-  onBatchSerialOpenChange,
-}, ref) => {
+function MovementLinesGridInner(
+  {
+    lines,
+    onChange,
+    items,
+    locations,
+    defaultFromLocationId,
+    defaultToLocationId,
+    movementType,
+    stockMap = {},
+    lineValidations = {},
+    fetchAvailableForBatch,
+    onBatchSerialOpenChange,
+  }: MovementLinesGridProps,
+  ref: React.ForwardedRef<MovementLinesGridHandle>
+) {
   const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
   const [batchSerialLineIndex, setBatchSerialLineIndex] = useState<number | null>(null);
+  const [availableSerialsForSelect, setAvailableSerialsForSelect] = useState<SerialResponse[]>([]);
   const [reconciledHintForLine, setReconciledHintForLine] = useState<Record<number, boolean>>({});
   const reconciledHintTimeouts = useRef<Record<number, NodeJS.Timeout>>({});
   const [focusedRow, setFocusedRow] = useState<number>(0);
   const [focusedCol, setFocusedCol] = useState<number>(1);
-  const cellRefs = useRef<Record<string, HTMLInputElement | HTMLSelectElement | HTMLButtonElement | null>>({});
+  const cellRefs = useRef<Record<string, HTMLInputElement | HTMLSelectElement | HTMLButtonElement | HTMLElement | null>>({});
   const selectRefs = useRef<Record<string, HTMLSelectElement | null>>({});
 
   const addLine = () => {
+    const newLineIndex = lines.length;
     onChange([
       ...lines,
       {
@@ -68,6 +78,8 @@ export const MovementLinesGrid = forwardRef<MovementLinesGridHandle, MovementLin
         unitOfMeasure: 'pcs',
       },
     ]);
+    // Focus the product name (Item) dropdown of the newly added line
+    setTimeout(() => focusCell(newLineIndex, 1), 0);
   };
 
   const removeLine = (index: number) => {
@@ -143,6 +155,27 @@ export const MovementLinesGrid = forwardRef<MovementLinesGridHandle, MovementLin
     });
   }, [lines, movementType]);
 
+  // Fetch availableSerials for NumberGrid when mode is SELECT and trackingType is SERIAL
+  useEffect(() => {
+    if (batchSerialLineIndex == null) {
+      setAvailableSerialsForSelect([]);
+      return;
+    }
+    const ln = lines[batchSerialLineIndex];
+    const it = items.find((i) => i.id === ln?.itemId);
+    const trackingType = getBatchSerialMode(it) === 'batch' ? 'BATCH' : 'SERIAL';
+    const { mode, serialStatus } = getNumberGridMode(movementType, ln?.quantity ?? 0);
+    const locId = ln?.fromLocationId || defaultFromLocationId || '';
+    if (mode !== 'SELECT' || trackingType !== 'SERIAL' || !ln?.itemId || !locId) {
+      setAvailableSerialsForSelect([]);
+      return;
+    }
+    inventoryService
+      .getSerialsByItem(ln.itemId, locId, serialStatus)
+      .then(setAvailableSerialsForSelect)
+      .catch(() => setAvailableSerialsForSelect([]));
+  }, [batchSerialLineIndex, lines, movementType, items, defaultFromLocationId]);
+
   const handlePaste = (e: React.ClipboardEvent) => {
     e.preventDefault();
     const pastedText = e.clipboardData.getData('text');
@@ -197,6 +230,8 @@ export const MovementLinesGrid = forwardRef<MovementLinesGridHandle, MovementLin
 
   const getEffectiveFromId = (line: MovementLineRequest) =>
     line.fromLocationId || defaultFromLocationId || '';
+  const getEffectiveToId = (line: MovementLineRequest) =>
+    line.toLocationId || defaultToLocationId || '';
   const getStockKey = (line: MovementLineRequest) =>
     `${line.itemId || ''}|${getEffectiveFromId(line)}`;
 
@@ -216,7 +251,7 @@ export const MovementLinesGrid = forwardRef<MovementLinesGridHandle, MovementLin
     return '-';
   };
 
-  const getBatchSerialMode = (item: InventoryItem | undefined): BatchSerialMode | null => {
+  const getBatchSerialMode = (item: InventoryItem | undefined): 'batch' | 'serial' | null => {
     if (!item?.industryFlags) return null;
     if (item.industryFlags.requiresBatchTracking) return 'batch';
     if (item.industryFlags.requiresSerialTracking) return 'serial';
@@ -238,7 +273,7 @@ export const MovementLinesGrid = forwardRef<MovementLinesGridHandle, MovementLin
     cols.push(8); // Batch/Serial
     cols.push(9); // Line Reason
     cols.push(10); // Status
-    cols.push(11); // Actions
+    // Skip 11: Actions (not focusable)
     return cols;
   };
 
@@ -249,18 +284,22 @@ export const MovementLinesGrid = forwardRef<MovementLinesGridHandle, MovementLin
   const focusCell = (row: number, col: number) => {
     const key = getCellKey(row, col);
     let cell = cellRefs.current[key];
-    
-    // For Select components, try to get from selectRefs or find via querySelector
     if (!cell && selectRefs.current[key]) {
       cell = selectRefs.current[key];
     }
-    
+    // DOM fallback: find by data-row/data-col when refs missed (e.g. after re-render)
+    if (!cell) {
+      const el = document.querySelector(`[data-row="${row}"][data-col="${col}"]`) as HTMLInputElement | HTMLSelectElement | HTMLButtonElement | null;
+      if (el && typeof el.focus === 'function') cell = el;
+    }
     if (cell) {
+      // Blur active SELECT first so native dropdown closes before moving focus
+      const active = document.activeElement;
+      if (active?.tagName === 'SELECT') (active as HTMLElement).blur();
       cell.focus();
       setFocusedRow(row);
       setFocusedCol(col);
     } else {
-      // If cell not found, try next focusable
       const idx = focusableColumns.indexOf(col);
       if (idx >= 0 && idx < focusableColumns.length - 1) {
         focusCell(row, focusableColumns[idx + 1]);
@@ -278,8 +317,71 @@ export const MovementLinesGrid = forwardRef<MovementLinesGridHandle, MovementLin
     }
   };
 
+  // Helper to move focus to next element after dropdown selection
+  const moveFocusAfterSelect = (rowIndex: number, currentCol: number) => {
+    const nextCol = getNextFocusableCol(currentCol, 'next');
+    if (nextCol !== null) {
+      // Move to next column in same row
+      setTimeout(() => focusCell(rowIndex, nextCol), 0);
+    } else {
+      // Last column, move to first column of next row
+      if (rowIndex < lines.length - 1) {
+        setTimeout(() => focusCell(rowIndex + 1, focusableColumns[0]), 0);
+      } else {
+        // Last row, wrap to first column of current row
+        setTimeout(() => focusCell(rowIndex, focusableColumns[0]), 0);
+      }
+    }
+  };
+
+  // Reusable handler for Select onChange that updates line and moves focus
+  const handleSelectChange = (
+    rowIndex: number,
+    colIndex: number,
+    updateFn: (value: string) => void
+  ) => {
+    return (e: React.ChangeEvent<HTMLSelectElement>) => {
+      updateFn(e.target.value);
+      // Move focus after selection (works even if same option selected via Enter)
+      moveFocusAfterSelect(rowIndex, colIndex);
+    };
+  };
+
+  // Handler for Select keyboard events - allows dropdown to open/close naturally
+  const handleSelectKeyDown = (rowIndex: number, colIndex: number) => {
+    return (e: React.KeyboardEvent<HTMLSelectElement>) => {
+      // Disable ArrowUp/ArrowDown for option selection - use for row navigation instead
+      if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+        e.preventDefault();
+        e.stopPropagation();
+        // Move focus to previous/next row, same column
+        if (e.key === 'ArrowUp' && rowIndex > 0) {
+          focusCell(rowIndex - 1, colIndex);
+        } else if (e.key === 'ArrowDown') {
+          if (rowIndex < lines.length - 1) {
+            focusCell(rowIndex + 1, colIndex);
+          } else {
+            // Last row, add new line and focus it
+            addLine();
+          }
+        }
+        return;
+      }
+      // Let Select handle Enter naturally (open/close dropdown, select option)
+      // Focus movement happens in onChange after selection
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+        // Arrow keys are handled by onKeyDownCapture on wrapper div
+        return;
+      }
+      // Pass other keys to main handler
+      handleKeyDown(e, rowIndex, colIndex);
+    };
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent, rowIndex: number, colIndex: number) => {
     if (batchSerialLineIndex !== null) return; // Don't handle when editor is open
+
+    const isSelect = (e.target as HTMLElement)?.tagName === 'SELECT';
 
     // Tab / Shift+Tab
     if (e.key === 'Tab') {
@@ -301,21 +403,31 @@ export const MovementLinesGrid = forwardRef<MovementLinesGridHandle, MovementLin
       return;
     }
 
-    // Enter: next editable in same row
+    // Enter: next editable in same row, or next row if on last column
     if (e.key === 'Enter' && !e.ctrlKey && !e.altKey) {
+      if (isSelect) {
+        // Select Enter opens/closes dropdown naturally - onChange handles focus movement
+        return;
+      }
       e.preventDefault();
       const nextCol = getNextFocusableCol(colIndex, 'next');
       if (nextCol !== null) {
         focusCell(rowIndex, nextCol);
       } else {
-        // Wrap to first
-        focusCell(rowIndex, focusableColumns[0]);
+        // Last column, move to first column of next row
+        if (rowIndex < lines.length - 1) {
+          focusCell(rowIndex + 1, focusableColumns[0]);
+        } else {
+          // Last row, wrap to first column of current row
+          focusCell(rowIndex, focusableColumns[0]);
+        }
       }
       return;
     }
 
-    // Arrow keys
+    // Arrow keys (let SELECT use ArrowUp/ArrowDown to open/navigate the dropdown)
     if (e.key === 'ArrowUp') {
+      if (isSelect) return;
       e.preventDefault();
       if (rowIndex > 0) {
         focusCell(rowIndex - 1, colIndex);
@@ -323,11 +435,11 @@ export const MovementLinesGrid = forwardRef<MovementLinesGridHandle, MovementLin
       return;
     }
     if (e.key === 'ArrowDown') {
+      if (isSelect) return;
       e.preventDefault();
       if (rowIndex < lines.length - 1) {
         focusCell(rowIndex + 1, colIndex);
       } else {
-        // Add new line and focus it
         addLine();
         setTimeout(() => focusCell(lines.length, colIndex), 0);
       }
@@ -343,15 +455,6 @@ export const MovementLinesGrid = forwardRef<MovementLinesGridHandle, MovementLin
       e.preventDefault();
       const nextCol = getNextFocusableCol(colIndex, 'next');
       if (nextCol !== null) focusCell(rowIndex, nextCol);
-      return;
-    }
-
-    // Line shortcuts
-    if (e.ctrlKey && e.key === 'Enter') {
-      e.preventDefault();
-      e.stopPropagation();
-      addLine();
-      setTimeout(() => focusCell(lines.length, 1), 0); // Focus Item
       return;
     }
 
@@ -378,12 +481,15 @@ export const MovementLinesGrid = forwardRef<MovementLinesGridHandle, MovementLin
       e.stopPropagation();
       const line = lines[rowIndex];
       const hasData = line.itemId || (line.quantity && line.quantity > 0) || line.batchNumber || (line.serialNumbers && line.serialNumbers.length > 0);
-      if (hasData && !window.confirm('Remove line with data?')) {
+      if (hasData && !confirmWithFocusRecovery('Remove line with data?')) {
         return;
       }
       removeLine(rowIndex);
-      const newRowIndex = rowIndex >= lines.length - 1 ? Math.max(0, rowIndex - 1) : rowIndex;
-      setTimeout(() => focusCell(newRowIndex, 1), 0);
+      // Focus the last remaining line's Item (product) dropdown
+      const lastRowIndex = Math.max(0, lines.length - 2);
+      if (lines.length > 1) {
+        setTimeout(() => focusCell(lastRowIndex, 1), 0);
+      }
       return;
     }
 
@@ -446,9 +552,10 @@ export const MovementLinesGrid = forwardRef<MovementLinesGridHandle, MovementLin
     focusErrorLineNext: (fromRow: number) => {
       focusErrorLineNext(fromRow);
     },
+    focusFirstItemSelect: () => {
+      setTimeout(() => focusCell(0, 1), 0);
+    },
   }));
-
-  const val = (idx: number) => lineValidations[idx] ?? { status: 'valid' as const, messages: [] };
 
   return (
     <div className="movement-lines-grid">
@@ -522,6 +629,7 @@ export const MovementLinesGrid = forwardRef<MovementLinesGridHandle, MovementLin
                         }
                         setSelectedRows(newSelected);
                       }}
+                      onKeyDown={(e) => handleKeyDown(e, index, 0)}
                       onFocus={() => {
                         setFocusedRow(index);
                         setFocusedCol(0);
@@ -541,17 +649,34 @@ export const MovementLinesGrid = forwardRef<MovementLinesGridHandle, MovementLin
                           }
                         }
                       }}
+                      onKeyDownCapture={(e) => {
+                        if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleKeyDown(e, index, 1);
+                        }
+                      }}
                     >
                       <Select
                         value={line.itemId}
-                        onChange={(e) => {
-                          const selectedItem = items.find((i) => i.id === e.target.value);
-                          updateLine(index, {
-                            itemId: e.target.value,
+                        onChange={handleSelectChange(index, 1, (value) => {
+                          const selectedItem = items.find((i) => i.id === value);
+                          const updates: Partial<MovementLineRequest> = {
+                            itemId: value,
                             unitOfMeasure: selectedItem?.unitOfMeasure || 'pcs',
-                          });
-                        }}
-                        onKeyDown={(e) => handleKeyDown(e, index, 1)}
+                          };
+                          // Clear serial/batch/date fields when the new item does not require them
+                          if (!selectedItem?.industryFlags?.requiresSerialTracking) {
+                            updates.serialNumbers = undefined;
+                          }
+                          if (!selectedItem?.industryFlags?.requiresBatchTracking) {
+                            updates.batchNumber = undefined;
+                            updates.manufacturingDate = undefined;
+                            updates.expiryDate = undefined;
+                          }
+                          updateLine(index, updates);
+                        })}
+                        onKeyDown={handleSelectKeyDown(index, 1)}
                         onFocus={() => {
                           setFocusedRow(index);
                           setFocusedCol(1);
@@ -570,8 +695,19 @@ export const MovementLinesGrid = forwardRef<MovementLinesGridHandle, MovementLin
                     </div>
                   </td>
                   <td>
-                    {/* TODO: Variant selector */}
-                    <span>-</span>
+                    <span
+                      ref={(el) => { cellRefs.current[getCellKey(index, 2)] = el; }}
+                      tabIndex={0}
+                      role="textbox"
+                      aria-readonly="true"
+                      onKeyDown={(e) => handleKeyDown(e, index, 2)}
+                      onFocus={() => { setFocusedRow(index); setFocusedCol(2); }}
+                      data-row={index}
+                      data-col={2}
+                      style={{ cursor: 'default' }}
+                    >
+                      -
+                    </span>
                   </td>
                   {needsFromLocation(movementType) && (
                     <td>
@@ -581,11 +717,20 @@ export const MovementLinesGrid = forwardRef<MovementLinesGridHandle, MovementLin
                           cellRefs.current[getCellKey(index, 3)] = selectEl;
                           selectRefs.current[getCellKey(index, 3)] = selectEl;
                         }}
+                        onKeyDownCapture={(e) => {
+                          if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handleKeyDown(e, index, 3);
+                          }
+                        }}
                       >
                         <Select
                           value={line.fromLocationId || defaultFromLocationId || ''}
-                          onChange={(e) => updateLine(index, { fromLocationId: e.target.value || undefined })}
-                          onKeyDown={(e) => handleKeyDown(e, index, 3)}
+                          onChange={handleSelectChange(index, 3, (value) => {
+                            updateLine(index, { fromLocationId: value || undefined });
+                          })}
+                          onKeyDown={handleSelectKeyDown(index, 3)}
                           onFocus={() => {
                             setFocusedRow(index);
                             setFocusedCol(3);
@@ -612,11 +757,20 @@ export const MovementLinesGrid = forwardRef<MovementLinesGridHandle, MovementLin
                           cellRefs.current[getCellKey(index, 4)] = selectEl;
                           selectRefs.current[getCellKey(index, 4)] = selectEl;
                         }}
+                        onKeyDownCapture={(e) => {
+                          if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handleKeyDown(e, index, 4);
+                          }
+                        }}
                       >
                         <Select
                           value={line.toLocationId || defaultToLocationId || ''}
-                          onChange={(e) => updateLine(index, { toLocationId: e.target.value || undefined })}
-                          onKeyDown={(e) => handleKeyDown(e, index, 4)}
+                          onChange={handleSelectChange(index, 4, (value) => {
+                            updateLine(index, { toLocationId: value || undefined });
+                          })}
+                          onKeyDown={handleSelectKeyDown(index, 4)}
                           onFocus={() => {
                             setFocusedRow(index);
                             setFocusedCol(4);
@@ -652,12 +806,17 @@ export const MovementLinesGrid = forwardRef<MovementLinesGridHandle, MovementLin
                   )}
                   <td>
                     <Input
+                      ref={(el) => { cellRefs.current[getCellKey(index, 6)] = el; }}
                       type="number"
                       value={line.quantity || ''}
                       onChange={(e) => updateLine(index, { quantity: parseFloat(e.target.value) || 0 })}
+                      onKeyDown={(e) => handleKeyDown(e, index, 6)}
+                      onFocus={() => { setFocusedRow(index); setFocusedCol(6); }}
                       min="0.01"
                       step="0.01"
                       style={{ width: '100px' }}
+                      data-row={index}
+                      data-col={6}
                     />
                   </td>
                   <td>
@@ -670,16 +829,34 @@ export const MovementLinesGrid = forwardRef<MovementLinesGridHandle, MovementLin
                   <td className="batch-serial-cell">
                     {(() => {
                       const mode = getBatchSerialMode(item);
-                      if (!mode) return <span>-</span>;
+                      if (!mode) {
+                        return (
+                          <span
+                            ref={(el) => { cellRefs.current[getCellKey(index, 8)] = el; }}
+                            tabIndex={0}
+                            onKeyDown={(e) => handleKeyDown(e, index, 8)}
+                            onFocus={() => { setFocusedRow(index); setFocusedCol(8); }}
+                            data-row={index}
+                            data-col={8}
+                          >
+                            -
+                          </span>
+                        );
+                      }
                       const summary = getBatchSerialSummary(line, item);
                       return (
                         <button
                           type="button"
+                          ref={(el) => { cellRefs.current[getCellKey(index, 8)] = el; }}
                           className="batch-serial-trigger"
                           onClick={() => {
                             setBatchSerialLineIndex(index);
                             onBatchSerialOpenChange?.(index);
                           }}
+                          onKeyDown={(e) => handleKeyDown(e, index, 8)}
+                          onFocus={() => { setFocusedRow(index); setFocusedCol(8); }}
+                          data-row={index}
+                          data-col={8}
                         >
                           {summary}
                         </button>
@@ -688,10 +865,15 @@ export const MovementLinesGrid = forwardRef<MovementLinesGridHandle, MovementLin
                   </td>
                   <td>
                     <Input
+                      ref={(el) => { cellRefs.current[getCellKey(index, 9)] = el; }}
                       value={line.lineReasonCode || ''}
                       onChange={(e) => updateLine(index, { lineReasonCode: e.target.value || undefined })}
+                      onKeyDown={(e) => handleKeyDown(e, index, 9)}
+                      onFocus={() => { setFocusedRow(index); setFocusedCol(9); }}
                       placeholder="Override reason"
                       style={{ width: '120px' }}
+                      data-row={index}
+                      data-col={9}
                     />
                   </td>
                   <td className="status-cell" title={val(index).messages.join('; ') || 'Valid'}>
@@ -703,6 +885,7 @@ export const MovementLinesGrid = forwardRef<MovementLinesGridHandle, MovementLin
                         variant="ghost"
                         size="sm"
                         onClick={() => duplicateLine(index)}
+                        tabIndex={-1}
                         title="Duplicate"
                       >
                         📋
@@ -711,6 +894,7 @@ export const MovementLinesGrid = forwardRef<MovementLinesGridHandle, MovementLin
                         variant="ghost"
                         size="sm"
                         onClick={() => removeLine(index)}
+                        tabIndex={-1}
                         title="Remove"
                       >
                         ×
@@ -734,67 +918,58 @@ export const MovementLinesGrid = forwardRef<MovementLinesGridHandle, MovementLin
         const idx = batchSerialLineIndex;
         const ln = lines[idx];
         const it = getSelectedItem(ln?.itemId ?? '');
-        const mode = getBatchSerialMode(it);
-        if (!ln || !it || !mode) return null;
-        
-        // Compute existing serials from other lines
-        const existingSerials = lines
+        const batchSerialMode = getBatchSerialMode(it);
+        if (!ln || !it || !batchSerialMode) return null;
+
+        const trackingType = batchSerialMode === 'batch' ? 'BATCH' : 'SERIAL';
+        const { mode: inputMode } = getNumberGridMode(movementType, ln.quantity ?? 0);
+        const locationId = inputMode === 'SELECT' ? (getEffectiveFromId(ln) || undefined) : undefined;
+
+        const existingSerialsInDoc = lines
           .flatMap((l, j) => (j === idx ? [] : l.serialNumbers ?? []))
           .filter(Boolean);
-        
-        const fromLocId = getEffectiveFromId(ln);
-        
+
+        const initialBatchRows: BatchRow[] = ln.batchNumber
+          ? [{ batchCode: ln.batchNumber, quantity: ln.quantity || 0, manufacturingDate: ln.manufacturingDate, expiryDate: ln.expiryDate }]
+          : [];
+
         return (
-          <BatchSerialEditor
-            mode={mode}
-            lineQuantity={ln.quantity || 0}
-            industryFlags={(it.industryFlags ?? {}) as import('@/services/inventory.service').IndustryFlags}
-            initial={{
-              batchNumber: ln.batchNumber,
-              manufacturingDate: ln.manufacturingDate,
-              expiryDate: ln.expiryDate,
-              serialNumbers: ln.serialNumbers,
-            }}
+          <NumberGrid
+            isOpen={true}
+            mode={inputMode}
+            trackingType={trackingType}
+            movementType={movementType}
             itemId={ln.itemId}
-            fromLocationId={fromLocId || undefined}
+            variantId={ln.variantId}
+            locationId={locationId}
+            fromLocationId={getEffectiveFromId(ln) || undefined}
+            toLocationId={getEffectiveToId(ln) || undefined}
+            expectedQuantity={ln.quantity || 0}
+            initialSerialNumbers={ln.serialNumbers}
+            initialBatchRows={initialBatchRows}
+            existingSerialsInDoc={existingSerialsInDoc}
+            availableSerials={inputMode === 'SELECT' && trackingType === 'SERIAL' ? availableSerialsForSelect : []}
+            allowOverReceive={false}
+            allowPartial={false}
+            industryFlags={(it.industryFlags ?? {}) as import('@/services/inventory.service').IndustryFlags}
             fetchAvailableForBatch={fetchAvailableForBatch}
-            existingSerials={existingSerials}
-            onSave={(v: BatchSerialValues) => {
+            onApply={(r) => {
               const oldQty = ln.quantity || 0;
-              const newQty = v.quantity ?? (mode === 'serial' ? v.serialNumbers?.length ?? 0 : oldQty);
-              
-              if (mode === 'batch' && v.batchRows) {
-                // Coalesce to first row for backend
-                updateLine(idx, {
-                  batchNumber: v.batchRows[0]?.batchNumber,
-                  manufacturingDate: v.batchRows[0]?.manufacturingDate,
-                  expiryDate: v.batchRows[0]?.expiryDate,
-                  quantity: newQty,
-                });
-              } else if (mode === 'serial' && v.serialNumbers) {
-                updateLine(idx, {
-                  serialNumbers: v.serialNumbers,
-                  quantity: newQty,
-                });
+              if (trackingType === 'SERIAL') {
+                updateLine(idx, { serialNumbers: r.finalSerialList, quantity: r.derivedQuantity });
               } else {
-                // Fallback for backward compat
                 updateLine(idx, {
-                  batchNumber: v.batchNumber,
-                  manufacturingDate: v.manufacturingDate,
-                  expiryDate: v.expiryDate,
-                  serialNumbers: v.serialNumbers,
-                  quantity: newQty,
+                  batchNumber: r.finalBatchList[0]?.batchCode,
+                  manufacturingDate: r.finalBatchList[0]?.manufacturingDate,
+                  expiryDate: r.finalBatchList[0]?.expiryDate,
+                  quantity: r.derivedQuantity,
                 });
               }
-              
-              if (oldQty !== newQty) {
-                setReconciledHint(idx);
-              }
-              
+              if (oldQty !== r.derivedQuantity) setReconciledHint(idx);
               setBatchSerialLineIndex(null);
               onBatchSerialOpenChange?.(null);
             }}
-            onClose={() => {
+            onCancel={() => {
               setBatchSerialLineIndex(null);
               onBatchSerialOpenChange?.(null);
             }}
@@ -803,6 +978,9 @@ export const MovementLinesGrid = forwardRef<MovementLinesGridHandle, MovementLin
       })()}
     </div>
   );
-});
+}
 
+export const MovementLinesGrid = forwardRef(MovementLinesGridInner) as React.ForwardRefExoticComponent<
+  MovementLinesGridProps & React.RefAttributes<MovementLinesGridHandle>
+>;
 MovementLinesGrid.displayName = 'MovementLinesGrid';

@@ -36,6 +36,7 @@ export interface ElectronAPI {
   getProxyAutoStartEnabled: () => Promise<{ enabled: boolean }>;
   setProxyAutoStartEnabled: (enabled: boolean) => Promise<{ success: boolean; error?: string }>;
   autoStartProxyIfDesired: () => Promise<{ success: boolean; reason?: string; error?: string; status?: any }>;
+  forceFocusWindow: () => void;
 }
 
 declare global {

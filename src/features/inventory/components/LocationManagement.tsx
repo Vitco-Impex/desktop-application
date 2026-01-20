@@ -17,7 +17,9 @@ import {
   LocationHierarchyResponse,
   StockByLocation,
   StockMovementResponse,
+  MovementType,
 } from '@/services/inventory.service';
+import { getDefaultReason } from '../constants/movementReasonMapping';
 import { Button, Input, Card, Select } from '@/shared/components/ui';
 import { LoadingState, EmptyState, ErrorState } from '@/shared/components/data-display';
 import { DataTable, ColumnDef } from '@/shared/components/data-display';
@@ -1236,12 +1238,16 @@ export const LocationManagement: React.FC<LocationManagementProps> = ({ location
               variant="ghost"
               size="sm"
               onClick={() => {
-                const newParams = new URLSearchParams(searchParams);
-                newParams.set('tab', 'movements');
-                newParams.set('create', '1');
-                newParams.set('movementType', MovementType.TRANSFER);
-                newParams.set('fromLocationId', selectedLocation.id);
-                setSearchParams(newParams);
+                const p = new URLSearchParams(searchParams);
+                p.set('tab', 'movements');
+                p.set('create', '1');
+                p.set('movementType', MovementType.TRANSFER);
+                p.set('fromLocationId', selectedLocation.id);
+                p.set('reasonCode', getDefaultReason('TRANSFER', 'location_from').defaultCode);
+                p.set('returnTab', 'locations');
+                p.set('returnLocationId', selectedLocation.id);
+                p.set('returnSubTab', locationSubTab);
+                setSearchParams(p);
               }}
               title="Create transfer from this location"
             >
@@ -1251,16 +1257,39 @@ export const LocationManagement: React.FC<LocationManagementProps> = ({ location
               variant="ghost"
               size="sm"
               onClick={() => {
-                const newParams = new URLSearchParams(searchParams);
-                newParams.set('tab', 'movements');
-                newParams.set('create', '1');
-                newParams.set('movementType', MovementType.RECEIPT);
-                newParams.set('toLocationId', selectedLocation.id);
-                setSearchParams(newParams);
+                const p = new URLSearchParams(searchParams);
+                p.set('tab', 'movements');
+                p.set('create', '1');
+                p.set('movementType', MovementType.RECEIPT);
+                p.set('toLocationId', selectedLocation.id);
+                p.set('reasonCode', getDefaultReason('RECEIPT', 'location').defaultCode);
+                p.set('returnTab', 'locations');
+                p.set('returnLocationId', selectedLocation.id);
+                p.set('returnSubTab', locationSubTab);
+                setSearchParams(p);
               }}
               title="Create receipt into this location"
             >
               Receipt Into
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                const p = new URLSearchParams(searchParams);
+                p.set('tab', 'movements');
+                p.set('create', '1');
+                p.set('movementType', MovementType.ISSUE);
+                p.set('fromLocationId', selectedLocation.id);
+                p.set('reasonCode', getDefaultReason('ISSUE', 'location').defaultCode);
+                p.set('returnTab', 'locations');
+                p.set('returnLocationId', selectedLocation.id);
+                p.set('returnSubTab', locationSubTab);
+                setSearchParams(p);
+              }}
+              title="Create issue from this location"
+            >
+              Issue From
             </Button>
             <Button
               variant="secondary"
@@ -1564,8 +1593,81 @@ export const LocationManagement: React.FC<LocationManagementProps> = ({ location
         width: 100,
         accessor: (stock) => stock.availableQuantity,
       },
+      {
+        id: 'actions',
+        header: 'Actions',
+        width: 200,
+        accessor: (stock) => {
+          const itemId = stock.item?.id || stock.itemId;
+          if (!itemId || !selectedLocationId) return null;
+          return (
+            <div className="stock-row-actions" onClick={(e) => e.stopPropagation()}>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  const p = new URLSearchParams(searchParams);
+                  p.set('tab', 'movements');
+                  p.set('create', '1');
+                  p.set('movementType', MovementType.RECEIPT);
+                  p.set('itemId', itemId);
+                  if (stock.variantId) p.set('variantId', stock.variantId);
+                  p.set('toLocationId', selectedLocationId);
+                  p.set('reasonCode', getDefaultReason('RECEIPT', 'location').defaultCode);
+                  p.set('returnTab', 'locations');
+                  p.set('returnLocationId', selectedLocationId);
+                  p.set('returnSubTab', 'stock');
+                  setSearchParams(p);
+                }}
+              >
+                Receive
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  const p = new URLSearchParams(searchParams);
+                  p.set('tab', 'movements');
+                  p.set('create', '1');
+                  p.set('movementType', MovementType.ISSUE);
+                  p.set('itemId', itemId);
+                  if (stock.variantId) p.set('variantId', stock.variantId);
+                  p.set('fromLocationId', selectedLocationId);
+                  p.set('reasonCode', getDefaultReason('ISSUE', 'location').defaultCode);
+                  p.set('returnTab', 'locations');
+                  p.set('returnLocationId', selectedLocationId);
+                  p.set('returnSubTab', 'stock');
+                  setSearchParams(p);
+                }}
+              >
+                Issue
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  const p = new URLSearchParams(searchParams);
+                  p.set('tab', 'movements');
+                  p.set('create', '1');
+                  p.set('movementType', MovementType.TRANSFER);
+                  p.set('itemId', itemId);
+                  if (stock.variantId) p.set('variantId', stock.variantId);
+                  p.set('fromLocationId', selectedLocationId);
+                  p.set('reasonCode', getDefaultReason('TRANSFER', 'location_from').defaultCode);
+                  p.set('returnTab', 'locations');
+                  p.set('returnLocationId', selectedLocationId);
+                  p.set('returnSubTab', 'stock');
+                  setSearchParams(p);
+                }}
+              >
+                Transfer
+              </Button>
+            </div>
+          );
+        },
+      },
     ];
-    
+
     return (
       <div className="stock-tab">
         <div className="stock-tab-toolbar">

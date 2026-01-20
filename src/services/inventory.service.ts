@@ -551,6 +551,14 @@ class InventoryService {
     return extractApiData<Array<{ code: string; name: string; category: string }>>(response);
   }
 
+  async getReasonCodesForMovementType(movementType: string): Promise<{
+    allowed: Array<{ code: string; name: string; category: string }>;
+    defaultCode: string;
+  }> {
+    const response = await api.get(`/inventory/reason-codes/for-movement-type?movementType=${encodeURIComponent(movementType)}`);
+    return extractApiData<{ allowed: Array<{ code: string; name: string; category: string }>; defaultCode: string }>(response);
+  }
+
   // Stock
   async getStockBalance(itemId: string, locationId: string, batchNumber?: string): Promise<StockBalance> {
     const params = new URLSearchParams();
@@ -653,6 +661,17 @@ class InventoryService {
     status: string;
   }>> {
     const response = await api.get(`/inventory/serials/${serialNumber}/history`);
+    return extractApiData(response);
+  }
+
+  async validateSerialsForMovement(params: {
+    itemId: string;
+    movementType: string;
+    serialNumbers: string[];
+    fromLocationId?: string;
+    toLocationId?: string;
+  }): Promise<Array<{ serialNumber: string; status: string; message?: string; allowForMovementType: boolean }>> {
+    const response = await api.post('/inventory/serials/validate-batch', params);
     return extractApiData(response);
   }
 

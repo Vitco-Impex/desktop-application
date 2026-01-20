@@ -20,11 +20,12 @@ import {
   InventoryItem,
   CreateInventoryItemRequest,
   UpdateInventoryItemRequest,
-  CreateVariantRequest,
   IndustryType,
+  MovementType,
 } from '@/services/inventory.service';
-import { Button, Input, Card, Select, ImageUpload, ImageData } from '@/shared/components/ui';
-import { LoadingState, EmptyState, ErrorState } from '@/shared/components/data-display';
+import { getDefaultReason } from '../constants/movementReasonMapping';
+import { Button, Input, Card, Select, ImageUpload } from '@/shared/components/ui';
+import { LoadingState, EmptyState } from '@/shared/components/data-display';
 import { extractErrorMessage } from '@/utils/error';
 import { logger } from '@/shared/utils/logger';
 import { ConfirmDialog } from '@/shared/components/modals';
@@ -32,9 +33,6 @@ import { ResizableSplitPane } from '@/shared/components/layout';
 import { VariantManagement } from './VariantManagement';
 import {
   ItemSubTab,
-  TrackingSubView,
-  MAX_WIZARD_STEPS,
-  MAX_COLLAPSIBLE_SECTIONS,
   validateWizardSteps,
   validateCollapsibleSections,
   validateSubViews,
@@ -66,7 +64,7 @@ export const ItemMaster: React.FC = () => {
   const [sortColumn, setSortColumn] = useState<string | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(50);
+  const [itemsPerPage, _setItemsPerPage] = useState(50);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [bulkActionLoading, setBulkActionLoading] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -127,7 +125,7 @@ export const ItemMaster: React.FC = () => {
   
   // Batch management state
   const [batches, setBatches] = useState<any[]>([]);
-  const [nearExpiryBatches, setNearExpiryBatches] = useState<any[]>([]);
+  const [_nearExpiryBatches, _setNearExpiryBatches] = useState<any[]>([]);
   const [batchLoading, setBatchLoading] = useState(false);
   const [batchViewMode, setBatchViewMode] = useState<'list' | 'create' | 'fefo'>('list');
   const [batchForm, setBatchForm] = useState({
@@ -157,7 +155,7 @@ export const ItemMaster: React.FC = () => {
   const [expiryLoading, setExpiryLoading] = useState(false);
   
   // Locations for batch operations
-  const [locations, setLocations] = useState<Array<{ id: string; code: string; name: string }>>([]);
+  const [locations, _setLocations] = useState<Array<{ id: string; code: string; name: string }>>([]);
   
   // Stock summary for inline expansion
   const [itemStockSummaries, setItemStockSummaries] = useState<Record<string, {
@@ -318,12 +316,7 @@ export const ItemMaster: React.FC = () => {
       if (isFormMode) {
         // Enter key handling in form fields
         if (e.key === 'Enter' && !e.shiftKey && isInputField && target.tagName !== 'TEXTAREA') {
-          // Don't prevent default for textarea (allows new lines)
-          if (target.tagName === 'TEXTAREA') {
-            return;
-          }
-          
-          // If Enter pressed in input, move to next field or submit if last step
+          // If Enter pressed in input/select, move to next field or submit if last step
           e.preventDefault();
           const currentFieldId = target.getAttribute('data-field-id');
           if (currentFieldId) {
@@ -458,7 +451,7 @@ export const ItemMaster: React.FC = () => {
       
       // Load stock summaries and expiry alerts if needed for filtering
       if (filterStockStatus || filterExpiryRisk) {
-        const [summaries, expiryAlerts] = await Promise.all([
+        const [, expiryAlerts] = await Promise.all([
           loadItemStockSummaries(data),
           filterExpiryRisk ? loadExpiryAlertsForFiltering() : Promise.resolve([]),
         ]);
@@ -859,7 +852,7 @@ export const ItemMaster: React.FC = () => {
   const loadVariants = async (itemId: string) => {
     try {
       const data = await inventoryService.getVariantsByItem(itemId);
-      logger.info(`[ItemMaster] Loaded ${data.length} variants for item ${itemId}`, data);
+      logger.info(`[ItemMaster] Loaded ${data.length} variants for item ${itemId}`, { count: data.length, itemId });
       // Merge variants: keep variants from other items, replace variants for this item
       setVariants(prevVariants => {
         const otherItemVariants = prevVariants.filter(v => v.itemId !== itemId);
@@ -1303,28 +1296,38 @@ export const ItemMaster: React.FC = () => {
     setViewMode('edit');
   };
 
-  const handleDuplicateItem = (item: InventoryItem) => {
-    // Generate new SKU by appending timestamp or counter
-    const timestamp = Date.now().toString().slice(-6);
-    const newSku = `${item.sku}-COPY-${timestamp}`;
-    
-    setFormData({
-      sku: newSku,
-      name: `${item.name} (Copy)`,
-      description: item.description || '',
-      category: item.category || '',
-      barcode: '',
-      unitOfMeasure: item.unitOfMeasure,
-      unitConversions: item.unitConversions || [],
-      industryFlags: item.industryFlags,
-      images: item.images || [],
-      dimensions: item.dimensions,
-      weight: item.weight,
-      tags: item.tags || [],
-    });
-    setHasUnsavedChanges(false);
-    setFieldErrors({});
-    setViewMode('add');
+  const startInlineEdit = (field: string, value: string | undefined) => {
+    setEditingField(field);
+    setEditingValue(value ?? '');
+  };
+
+  const cancelInlineEdit = () => {
+    setEditingField(null);
+    setEditingValue(null);
+    setSavingField(null);
+  };
+
+  const handleInlineEdit = async (field: 'name' | 'category' | 'unitOfMeasure' | 'description', value: string | undefined) => {
+    if (!selectedItemId || !selectedItem) return;
+    const cur = selectedItem[field] as string | undefined;
+    const v = value ?? '';
+    if (String(cur ?? '') === v) {
+      cancelInlineEdit();
+      return;
+    }
+    setSavingField(field);
+    try {
+      await inventoryService.updateItem(selectedItemId, { [field]: v });
+      setSelectedItem((prev) => (prev ? { ...prev, [field]: v } : null) as InventoryItem);
+      setSuccess('Updated');
+      clearSuccessMessage();
+    } catch (err: unknown) {
+      setError(extractErrorMessage(err, 'Failed to update'));
+    } finally {
+      setSavingField(null);
+      setEditingField(null);
+      setEditingValue(null);
+    }
   };
 
   const renderList = () => (
@@ -1569,7 +1572,6 @@ export const ItemMaster: React.FC = () => {
             <tbody>
               {items.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((item) => {
                 const isExpanded = expandedRows.has(item.id);
-                const stockSummary = itemStockSummaries[item.id];
                 const itemVariants = variants.filter(v => v.itemId === item.id);
                 // Debug log when row is expanded
                 if (isExpanded && item.hasVariants) {
@@ -2007,7 +2009,7 @@ export const ItemMaster: React.FC = () => {
                 <textarea
                   id="description-field"
                   data-field-id="description"
-                  ref={(el) => { formFieldRefs.current['description'] = el; }}
+                  ref={(el: HTMLTextAreaElement | null) => { formFieldRefs.current['description'] = el; }}
                   value={formData.description}
                   onChange={(e) => {
                     setFormData({ ...formData, description: e.target.value });
@@ -2608,22 +2610,65 @@ export const ItemMaster: React.FC = () => {
             </div>
           </div>
           <div className="item-detail-header-actions">
-            <Button 
-              variant="ghost" 
-              onClick={() => {
-                const newParams = new URLSearchParams(searchParams);
-                newParams.set('tab', 'movements');
-                newParams.set('create', '1');
-                newParams.set('itemId', selectedItem.id);
-                if (selectedVariantId) {
-                  newParams.set('variantId', selectedVariantId);
-                }
-                setSearchParams(newParams);
-              }} 
+            <Button
+              variant="ghost"
               size="sm"
-              title="Create movement for this item"
+              title="Receive stock for this item"
+              onClick={() => {
+                const p = new URLSearchParams(searchParams);
+                p.set('tab', 'movements');
+                p.set('create', '1');
+                p.set('movementType', MovementType.RECEIPT);
+                p.set('itemId', selectedItem.id);
+                if (selectedVariantId) p.set('variantId', selectedVariantId);
+                p.set('reasonCode', getDefaultReason('RECEIPT', 'item').defaultCode);
+                p.set('returnTab', 'items');
+                p.set('returnItemId', selectedItem.id);
+                p.set('returnSubTab', itemSubTab);
+                setSearchParams(p);
+              }}
             >
-              Create Movement
+              Receive Stock
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              title="Issue stock for this item"
+              onClick={() => {
+                const p = new URLSearchParams(searchParams);
+                p.set('tab', 'movements');
+                p.set('create', '1');
+                p.set('movementType', MovementType.ISSUE);
+                p.set('itemId', selectedItem.id);
+                if (selectedVariantId) p.set('variantId', selectedVariantId);
+                p.set('reasonCode', getDefaultReason('ISSUE', 'item').defaultCode);
+                p.set('returnTab', 'items');
+                p.set('returnItemId', selectedItem.id);
+                p.set('returnSubTab', itemSubTab);
+                setSearchParams(p);
+              }}
+            >
+              Issue Stock
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              title="Transfer stock for this item"
+              onClick={() => {
+                const p = new URLSearchParams(searchParams);
+                p.set('tab', 'movements');
+                p.set('create', '1');
+                p.set('movementType', MovementType.TRANSFER);
+                p.set('itemId', selectedItem.id);
+                if (selectedVariantId) p.set('variantId', selectedVariantId);
+                p.set('reasonCode', getDefaultReason('TRANSFER', 'item').defaultCode);
+                p.set('returnTab', 'items');
+                p.set('returnItemId', selectedItem.id);
+                p.set('returnSubTab', itemSubTab);
+                setSearchParams(p);
+              }}
+            >
+              Transfer Stock
             </Button>
             <Button 
               variant={selectedItem.isActive ? 'secondary' : 'primary'} 
@@ -2950,8 +2995,6 @@ export const ItemMaster: React.FC = () => {
     // Calculate totals across all variants (matching report logic)
     const totalOnHand = Object.values(stockByVariant).reduce((sum, v) => sum + v.onHand, 0);
     const totalReserved = Object.values(stockByVariant).reduce((sum, v) => sum + v.reserved, 0);
-    const totalBlocked = Object.values(stockByVariant).reduce((sum, v) => sum + v.blocked, 0);
-    const totalDamaged = Object.values(stockByVariant).reduce((sum, v) => sum + v.damaged, 0);
     const totalAvailable = Object.values(stockByVariant).reduce((sum, v) => sum + v.available, 0);
     const locationCount = new Set(stockData.map(s => s.locationId)).size;
 
@@ -3014,6 +3057,7 @@ export const ItemMaster: React.FC = () => {
                   <th>Blocked</th>
                   <th>Damaged</th>
                   <th>Available</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -3034,7 +3078,6 @@ export const ItemMaster: React.FC = () => {
                           className="location-link-button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            // Clear item-related params when navigating to locations
                             const newParams = new URLSearchParams();
                             newParams.set('tab', 'locations');
                             newParams.set('locationId', locStock.location.id);
@@ -3049,7 +3092,6 @@ export const ItemMaster: React.FC = () => {
                           className="location-link-button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            // Clear item-related params when navigating to locations
                             const newParams = new URLSearchParams();
                             newParams.set('tab', 'locations');
                             newParams.set('locationId', locStock.location.id);
@@ -3064,6 +3106,70 @@ export const ItemMaster: React.FC = () => {
                       <td>{locStock.blocked}</td>
                       <td>{locStock.damaged}</td>
                       <td>{locStock.available}</td>
+                      <td>
+                        <div className="stock-row-actions" onClick={(e) => e.stopPropagation()}>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              const p = new URLSearchParams(searchParams);
+                              p.set('tab', 'movements');
+                              p.set('create', '1');
+                              p.set('movementType', MovementType.RECEIPT);
+                              p.set('itemId', selectedItem!.id);
+                              if (selectedVariantId) p.set('variantId', selectedVariantId);
+                              p.set('toLocationId', locStock.location.id);
+                              p.set('reasonCode', getDefaultReason('RECEIPT', 'item').defaultCode);
+                              p.set('returnTab', 'items');
+                              p.set('returnItemId', selectedItem!.id);
+                              p.set('returnSubTab', 'stock');
+                              setSearchParams(p);
+                            }}
+                          >
+                            Receive
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              const p = new URLSearchParams(searchParams);
+                              p.set('tab', 'movements');
+                              p.set('create', '1');
+                              p.set('movementType', MovementType.ISSUE);
+                              p.set('itemId', selectedItem!.id);
+                              if (selectedVariantId) p.set('variantId', selectedVariantId);
+                              p.set('fromLocationId', locStock.location.id);
+                              p.set('reasonCode', getDefaultReason('ISSUE', 'item').defaultCode);
+                              p.set('returnTab', 'items');
+                              p.set('returnItemId', selectedItem!.id);
+                              p.set('returnSubTab', 'stock');
+                              setSearchParams(p);
+                            }}
+                          >
+                            Issue
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              const p = new URLSearchParams(searchParams);
+                              p.set('tab', 'movements');
+                              p.set('create', '1');
+                              p.set('movementType', MovementType.TRANSFER);
+                              p.set('itemId', selectedItem!.id);
+                              if (selectedVariantId) p.set('variantId', selectedVariantId);
+                              p.set('fromLocationId', locStock.location.id);
+                              p.set('reasonCode', getDefaultReason('TRANSFER', 'item').defaultCode);
+                              p.set('returnTab', 'items');
+                              p.set('returnItemId', selectedItem!.id);
+                              p.set('returnSubTab', 'stock');
+                              setSearchParams(p);
+                            }}
+                          >
+                            Transfer
+                          </Button>
+                        </div>
+                      </td>
                     </tr>
                   );
                 })}

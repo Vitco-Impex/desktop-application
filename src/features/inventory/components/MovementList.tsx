@@ -13,13 +13,13 @@ import './MovementList.css';
 interface MovementListProps {
   onSelectMovement: (documentId: string) => void;
   selectedDocumentId?: string;
+  onCreateMovement?: () => void;
 }
 
-export const MovementList: React.FC<MovementListProps> = ({ onSelectMovement, selectedDocumentId }) => {
+export const MovementList: React.FC<MovementListProps> = ({ onSelectMovement, selectedDocumentId, onCreateMovement }) => {
   const [documents, setDocuments] = useState<MovementDocumentResponse[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [filters, setFilters] = useState({
     movementType: '' as MovementType | '',
     status: '' as MovementStatus | '',
@@ -56,17 +56,6 @@ export const MovementList: React.FC<MovementListProps> = ({ onSelectMovement, se
     loadDocuments();
   }, [filters]);
 
-  const toggleExpand = (documentId: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    const newExpanded = new Set(expandedRows);
-    if (newExpanded.has(documentId)) {
-      newExpanded.delete(documentId);
-    } else {
-      newExpanded.add(documentId);
-    }
-    setExpandedRows(newExpanded);
-  };
-
   const getFromLocation = (doc: MovementDocumentResponse) => {
     if (doc.lines.length > 0 && doc.lines[0].fromLocation) {
       return doc.lines[0].fromLocation;
@@ -93,6 +82,11 @@ export const MovementList: React.FC<MovementListProps> = ({ onSelectMovement, se
     <div className="movement-list">
       <div className="movement-list-toolbar">
         <div className="movement-list-filters">
+          {onCreateMovement && (
+            <Button variant="primary" onClick={onCreateMovement} title="Create movement (Ctrl+A)">
+              Create Movement
+            </Button>
+          )}
           <Select
             value={filters.movementType}
             onChange={(e) => setFilters({ ...filters, movementType: e.target.value as MovementType | '' })}
@@ -185,7 +179,6 @@ export const MovementList: React.FC<MovementListProps> = ({ onSelectMovement, se
           <table>
             <thead>
               <tr>
-                <th>Movement #</th>
                 <th>Date & Time</th>
                 <th>Type</th>
                 <th>Total Lines</th>
@@ -195,97 +188,32 @@ export const MovementList: React.FC<MovementListProps> = ({ onSelectMovement, se
                 <th>Status</th>
                 <th>Created By</th>
                 <th>Approved By</th>
-                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               {documents.map((doc) => {
-                const isExpanded = expandedRows.has(doc.id);
                 const fromLoc = getFromLocation(doc);
                 const toLoc = getToLocation(doc);
                 return (
-                  <React.Fragment key={doc.id}>
-                    <tr
-                      className={`movement-row ${selectedDocumentId === doc.id ? 'selected' : ''}`}
-                      onClick={() => onSelectMovement(doc.id)}
-                    >
-                      <td>
-                        <div className="movement-number-cell">
-                          {doc.lines.length > 0 && (
-                            <span
-                              className={`expand-icon ${isExpanded ? 'expanded' : ''}`}
-                              onClick={(e) => toggleExpand(doc.id, e)}
-                            >
-                              ▶
-                            </span>
-                          )}
-                          {doc.movementNumber}
-                        </div>
-                      </td>
-                      <td>{new Date(doc.createdAt).toLocaleString()}</td>
-                      <td>{doc.movementType}</td>
-                      <td>{doc.totalLines}</td>
-                      <td>{fromLoc ? `${fromLoc.code} - ${fromLoc.name}` : '-'}</td>
-                      <td>{toLoc ? `${toLoc.code} - ${toLoc.name}` : '-'}</td>
-                      <td>{doc.totalQuantity}</td>
-                      <td>
-                        <span className={`status-${doc.status.toLowerCase()}`}>
-                          {doc.status}
-                        </span>
-                      </td>
-                      <td>{doc.createdBy.name}</td>
-                      <td>{doc.approvedBy || '-'}</td>
-                      <td onClick={(e) => e.stopPropagation()}>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => onSelectMovement(doc.id)}
-                        >
-                          View
-                        </Button>
-                      </td>
-                    </tr>
-                    {isExpanded && doc.lines.length > 0 && (
-                      <tr>
-                        <td colSpan={11} className="expanded-content">
-                          <div className="expanded-lines-preview">
-                            <strong>Lines Preview:</strong>
-                            <table>
-                              <thead>
-                                <tr>
-                                  <th>Line</th>
-                                  <th>Item</th>
-                                  <th>Variant</th>
-                                  <th>From</th>
-                                  <th>To</th>
-                                  <th>Quantity</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {doc.lines.slice(0, 5).map((line) => (
-                                  <tr key={line.id}>
-                                    <td>{line.lineNo}</td>
-                                    <td>{line.item?.name || line.itemId}</td>
-                                    <td>{line.variant?.name || '-'}</td>
-                                    <td>{line.fromLocation?.code || '-'}</td>
-                                    <td>{line.toLocation?.code || '-'}</td>
-                                    <td>{line.quantity}</td>
-                                  </tr>
-                                ))}
-                                {doc.lines.length > 5 && (
-                                  <tr>
-                                    <td colSpan={6} style={{ textAlign: 'center', fontStyle: 'italic' }}>
-                                      ... and {doc.lines.length - 5} more lines
-                                    </td>
-                                  </tr>
-                                )}
-                              </tbody>
-                            </table>
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-                  </React.Fragment>
+                  <tr
+                    key={doc.id}
+                    className={`movement-row ${selectedDocumentId === doc.id ? 'selected' : ''}`}
+                    onClick={() => onSelectMovement(doc.id)}
+                  >
+                    <td>{new Date(doc.createdAt).toLocaleString()}</td>
+                    <td>{doc.movementType}</td>
+                    <td>{doc.totalLines}</td>
+                    <td>{fromLoc ? `${fromLoc.code} - ${fromLoc.name}` : '-'}</td>
+                    <td>{toLoc ? `${toLoc.code} - ${toLoc.name}` : '-'}</td>
+                    <td>{doc.totalQuantity}</td>
+                    <td>
+                      <span className={`status-${doc.status.toLowerCase()}`}>
+                        {doc.status}
+                      </span>
+                    </td>
+                    <td>{doc.createdBy.name}</td>
+                    <td>{doc.approvedBy || '-'}</td>
+                  </tr>
                 );
               })}
             </tbody>

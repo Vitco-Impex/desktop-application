@@ -2,7 +2,7 @@
  * Movement Detail Panel Component - Document view with tabs
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { inventoryService, MovementDocumentResponse, MovementStatus } from '@/services/inventory.service';
 import { Button, Card } from '@/shared/components/ui';
 import { LoadingState } from '@/shared/components/data-display';
@@ -33,6 +33,8 @@ export const MovementDetailPanel: React.FC<MovementDetailPanelProps> = ({
   const [rejectionReason, setRejectionReason] = useState('');
   const [showReverseDialog, setShowReverseDialog] = useState(false);
   const [reversalReason, setReversalReason] = useState('');
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   useEffect(() => {
     if (documentId) {
@@ -41,6 +43,21 @@ export const MovementDetailPanel: React.FC<MovementDetailPanelProps> = ({
       setDocument(null);
     }
   }, [documentId]);
+
+  // ESC to close details (capture phase so it runs before other handlers)
+  useEffect(() => {
+    if (!documentId) return;
+    if (typeof document === 'undefined' || !document) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      if (showApproveDialog || showReverseDialog) return;
+      e.preventDefault();
+      e.stopPropagation();
+      onCloseRef.current();
+    };
+    document.addEventListener('keydown', onKey, true);
+    return () => document.removeEventListener('keydown', onKey, true);
+  }, [documentId, showApproveDialog, showReverseDialog]);
 
   const loadDocument = async () => {
     if (!documentId) return;
@@ -153,6 +170,15 @@ export const MovementDetailPanel: React.FC<MovementDetailPanelProps> = ({
               Reverse
             </Button>
           )}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onClose}
+            title="Close (Esc)"
+            aria-label="Close"
+          >
+            ×
+          </Button>
         </div>
       </div>
 

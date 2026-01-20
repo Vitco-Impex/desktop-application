@@ -2,7 +2,7 @@
  * Create Movement View - Full-width form with header, lines grid, and summary
  */
 
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   inventoryService,
@@ -13,15 +13,21 @@ import {
   Location,
 } from '@/services/inventory.service';
 import { Button, Input, Select } from '@/shared/components/ui';
+import { Modal } from '@/shared/components/modals';
+import { confirmWithFocusRecovery } from '@/shared/utils/dialog';
 import { extractErrorMessage } from '@/utils/error';
 import { logger } from '@/shared/utils/logger';
-import { MovementLinesGrid, type LineValidation, type StockMapEntry } from './MovementLinesGrid';
-import { MovementSummaryPanel, type StockImpactEntry } from './MovementSummaryPanel';
+import { MovementLinesGrid, type LineValidation, type StockMapEntry, type MovementLinesGridHandle } from './MovementLinesGrid';
+import { MovementSummaryPanel, type StockImpactEntry, type MovementSummaryPanelHandle } from './MovementSummaryPanel';
 import './CreateMovementView.css';
 
 const NEEDS_FROM: MovementType[] = [
   MovementType.TRANSFER, MovementType.ISSUE, MovementType.DAMAGE,
   MovementType.WASTE, MovementType.LOSS, MovementType.BLOCK,
+];
+
+const NEEDS_TO: MovementType[] = [
+  MovementType.RECEIPT, MovementType.TRANSFER, MovementType.ADJUSTMENT,
 ];
 
 interface CreateMovementViewProps {
@@ -33,6 +39,8 @@ interface CreateMovementViewProps {
     variantId?: string;
     fromLocationId?: string;
     toLocationId?: string;
+    reasonCode?: string;
+    reasonLocked?: boolean;
   };
 }
 
@@ -48,6 +56,7 @@ export const CreateMovementView: React.FC<CreateMovementViewProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showOptionalFields, setShowOptionalFields] = useState(false);
+  const [shortcutsModalOpen, setShortcutsModalOpen] = useState(false);
 
   // Get prefill from URL params or props
   const urlMovementType = searchParams.get('movementType') as MovementType | null;
@@ -55,12 +64,14 @@ export const CreateMovementView: React.FC<CreateMovementViewProps> = ({
   const urlVariantId = searchParams.get('variantId');
   const urlFromLocationId = searchParams.get('fromLocationId');
   const urlToLocationId = searchParams.get('toLocationId');
+  const urlReasonLocked = searchParams.get('reasonLocked') === '1' || searchParams.get('reasonLocked') === 'true';
+  const reasonLocked = prefillData?.reasonLocked ?? urlReasonLocked;
 
   const [header, setHeader] = useState({
     movementType: (prefillData?.movementType || urlMovementType || MovementType.RECEIPT) as MovementType,
     defaultFromLocationId: prefillData?.fromLocationId || urlFromLocationId || '',
     defaultToLocationId: prefillData?.toLocationId || urlToLocationId || '',
-    reasonCode: '',
+    reasonCode: prefillData?.reasonCode || '',
     reasonDescription: '',
     documentNotes: '',
     requiresApproval: false,
@@ -90,12 +101,43 @@ export const CreateMovementView: React.FC<CreateMovementViewProps> = ({
   const [isDirty, setIsDirty] = useState(false);
   const gridContainerRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<MovementLinesGridHandle>(null);
+  const summaryPanelRef = useRef<MovementSummaryPanelHandle>(null);
+  const typeSelectRef = useRef<HTMLSelectElement>(null);
+  const fromSelectRef = useRef<HTMLSelectElement>(null);
+  const toSelectRef = useRef<HTMLSelectElement>(null);
+  const reasonSelectRef = useRef<HTMLSelectElement>(null);
 
   useEffect(() => {
     loadItems();
     loadLocations();
-    loadReasonCodes();
   }, []);
+
+  // Load reason codes from API only (DB-valid, active). Selector shows only these; default must be in list.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await inventoryService.getReasonCodesForMovementType(header.movementType);
+        if (cancelled) return;
+        const allowed = (data.allowed || []).map((r) => ({ code: r.code, name: r.name || r.code }));
+        setReasonCodes(allowed);
+        const defaultCode = (data.allowed || []).some((a) => a.code === (data.defaultCode || ''))
+          ? (data.defaultCode || '')
+          : (data.allowed || [])[0]?.code || '';
+        setHeader((prev) => {
+          if (reasonLocked) return prev;
+          const inList = (data.allowed || []).some((a) => a.code === prev.reasonCode);
+          if (inList && prev.reasonCode) return prev;
+          return { ...prev, reasonCode: defaultCode };
+        });
+      } catch (err) {
+        if (cancelled) return;
+        logger.error('[CreateMovementView] Failed to load reason codes for movement type', err);
+        setReasonCodes([]);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [header.movementType, reasonLocked]);
 
   const loadItems = async () => {
     try {
@@ -112,22 +154,6 @@ export const CreateMovementView: React.FC<CreateMovementViewProps> = ({
       setLocations(data);
     } catch (err) {
       logger.error('[CreateMovementView] Failed to load locations', err);
-    }
-  };
-
-  const loadReasonCodes = async () => {
-    try {
-      const data = await inventoryService.getReasonCodes();
-      setReasonCodes(data.map((rc) => ({ code: rc.code, name: rc.name })));
-    } catch (err) {
-      logger.error('[CreateMovementView] Failed to load reason codes', err);
-      // Fallback to hardcoded if API fails
-      setReasonCodes([
-        { code: 'RECEIPT', name: 'Receipt' },
-        { code: 'ISSUE', name: 'Issue' },
-        { code: 'TRANSFER', name: 'Transfer' },
-        { code: 'ADJUSTMENT', name: 'Adjustment' },
-      ]);
     }
   };
 
@@ -190,126 +216,118 @@ export const CreateMovementView: React.FC<CreateMovementViewProps> = ({
     })();
   }, [lines, header.defaultFromLocationId, header.defaultToLocationId, header.movementType]);
 
-  const handleSubmit = async () => {
+  const fetchAvailableForBatch = useCallback(
+    async (itemId: string, locationId: string, batchNumber: string): Promise<number> => {
+      try {
+        const b = await inventoryService.getStockBalance(itemId, locationId, batchNumber);
+        return b.available ?? 0;
+      } catch {
+        return 0;
+      }
+    },
+    []
+  );
+
+  const buildRequest = useCallback((): CreateMovementBatchRequest => ({
+    ...header,
+    defaultFromLocationId: header.defaultFromLocationId || undefined,
+    defaultToLocationId: header.defaultToLocationId || undefined,
+    lines: lines.map((line) => ({
+      ...line,
+      fromLocationId: line.fromLocationId || header.defaultFromLocationId || undefined,
+      toLocationId: line.toLocationId || header.defaultToLocationId || undefined,
+    })),
+  }), [header, lines]);
+
+  const handleSubmit = useCallback(async () => {
     setError(null);
     setLoading(true);
-
     try {
-      // Validate
-      if (!header.reasonCode) {
-        throw new Error('Reason code is required');
-      }
-      if (lines.length === 0) {
-        throw new Error('At least one line is required');
-      }
+      if (!header.reasonCode) throw new Error('Reason code is required');
+      if (lines.length === 0) throw new Error('At least one line is required');
       if (lines.some((line) => !line.itemId || !line.quantity || line.quantity <= 0)) {
         throw new Error('All lines must have a valid item and quantity');
       }
-
-      const request: CreateMovementBatchRequest = {
-        ...header,
-        defaultFromLocationId: header.defaultFromLocationId || undefined,
-        defaultToLocationId: header.defaultToLocationId || undefined,
-        lines: lines.map((line) => ({
-          ...line,
-          fromLocationId: line.fromLocationId || header.defaultFromLocationId || undefined,
-          toLocationId: line.toLocationId || header.defaultToLocationId || undefined,
-        })),
-      };
-
-      await inventoryService.createMovementBatch(request);
+      await inventoryService.createMovementBatch(buildRequest());
       onSuccess();
     } catch (err: any) {
-      const message = extractErrorMessage(err, 'Failed to create movement');
-      setError(message);
+      setError(extractErrorMessage(err, 'Failed to create movement'));
       logger.error('[CreateMovementView] Failed to create movement', err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [header.reasonCode, lines, buildRequest, onSuccess]);
 
-  const handleSaveDraft = async () => {
+  const handleSaveDraft = useCallback(async () => {
     setError(null);
     setLoading(true);
-
     try {
-      const request: CreateMovementBatchRequest = {
-        ...header,
-        defaultFromLocationId: header.defaultFromLocationId || undefined,
-        defaultToLocationId: header.defaultToLocationId || undefined,
-        requiresApproval: false, // Drafts don't require approval
-        lines: lines.map((line) => ({
-          ...line,
-          fromLocationId: line.fromLocationId || header.defaultFromLocationId || undefined,
-          toLocationId: line.toLocationId || header.defaultToLocationId || undefined,
-        })),
-      };
-
-      await inventoryService.saveDraft(request);
+      await inventoryService.saveDraft({ ...buildRequest(), requiresApproval: false });
       onSuccess();
     } catch (err: any) {
-      const message = extractErrorMessage(err, 'Failed to save draft');
-      setError(message);
+      setError(extractErrorMessage(err, 'Failed to save draft'));
       logger.error('[CreateMovementView] Failed to save draft', err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [buildRequest, onSuccess]);
 
   // Track dirty state
   useEffect(() => {
     setIsDirty(true);
   }, [lines, header]);
 
+  // Esc (capture): close shortcuts modal first, then NumberGrid and form handle their own Escape
+  useEffect(() => {
+    const onEscapeCapture = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      if (shortcutsModalOpen) {
+        setShortcutsModalOpen(false);
+        e.stopImmediatePropagation();
+        e.preventDefault();
+      }
+    };
+    document.addEventListener('keydown', onEscapeCapture, true);
+    return () => document.removeEventListener('keydown', onEscapeCapture, true);
+  }, [shortcutsModalOpen]);
+
   // Document-level keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ctrl+S: Save as Draft
-      if (e.ctrlKey && e.key === 's') {
+      // Ctrl+S: Save as Draft (call handler directly to avoid button/form quirks)
+      if (e.ctrlKey && e.key.toLowerCase() === 's') {
         e.preventDefault();
-        handleSaveDraft();
-        return;
-      }
-
-      // Ctrl+Shift+V: Validate (focus first error)
-      if (e.ctrlKey && e.shiftKey && e.key === 'V') {
-        e.preventDefault();
-        // Will be handled by grid ref when implemented
+        if (!loading) handleSaveDraft();
         return;
       }
 
       // Ctrl+Enter: Submit (when not in grid)
       if (e.ctrlKey && e.key === 'Enter') {
         const activeElement = document.activeElement;
-        if (gridContainerRef.current && gridContainerRef.current.contains(activeElement)) {
-          // Grid will handle it
-          return;
-        }
+        if (gridContainerRef.current?.contains(activeElement)) return;
         e.preventDefault();
-        handleSubmit();
+        summaryPanelRef.current?.clickSubmit();
         return;
       }
 
-      // Esc: Cancel with unsaved changes warning
+      // Esc: 1) Shortcuts modal → capture above. 2) NumberGrid (Batch/Serial) → Modal handles and stopPropagation. 3) Form:
       if (e.key === 'Escape') {
-        if (batchSerialEditorOpen !== null) {
-          // Editor will handle it
-          return;
-        }
-        if (isDirty) {
-          if (window.confirm('Discard unsaved changes?')) {
-            onCancel();
-          }
-        } else {
-          onCancel();
-        }
+        if (batchSerialEditorOpen !== null) return; // NumberGrid (or similar) is open; it handles ESC, do not close form
+        if (isDirty && confirmWithFocusRecovery('Discard unsaved changes?')) onCancel();
+        else if (!isDirty) onCancel();
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [batchSerialEditorOpen, isDirty]);
+  }, [batchSerialEditorOpen, isDirty, onCancel, loading, handleSaveDraft]);
+
+  // Focus Type select when form is first shown (not loading)
+  useEffect(() => {
+    if (loading) return;
+    const t = setTimeout(() => typeSelectRef.current?.focus(), 0);
+    return () => clearTimeout(t);
+  }, [loading]);
 
   const totalQuantity = lines.reduce((sum, line) => sum + Math.abs(line.quantity), 0);
   const needFrom = NEEDS_FROM.includes(header.movementType);
@@ -404,11 +422,39 @@ export const CreateMovementView: React.FC<CreateMovementViewProps> = ({
     if (v.status === 'warning') v.messages.forEach((m) => warnings.push(m));
   });
 
+  type HeaderField = 'type' | 'from' | 'to' | 'reason';
+  const headerRefs: Record<HeaderField, React.RefObject<HTMLSelectElement | null>> = {
+    type: typeSelectRef, from: fromSelectRef, to: toSelectRef, reason: reasonSelectRef,
+  };
+  const getHeaderFocusSequence = (): HeaderField[] => {
+    const nFrom = NEEDS_FROM.includes(header.movementType);
+    const nTo = NEEDS_TO.includes(header.movementType);
+    return ['type', ...(nFrom ? (['from'] as const) : []), ...(nTo ? (['to'] as const) : []), 'reason'];
+  };
+  const moveFocusToNext = (field: HeaderField) => {
+    const seq = getHeaderFocusSequence();
+    const i = seq.indexOf(field);
+    const target = seq[i + 1];
+    if (target) {
+      setTimeout(() => headerRefs[target].current?.focus(), 0);
+    } else {
+      gridRef.current?.focusFirstItemSelect();
+    }
+  };
+
   return (
     <div className="create-movement-view">
       <div className="create-movement-header-bar">
         <h2>Create Stock Movement</h2>
         <div className="header-actions">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setShortcutsModalOpen(true)}
+            title="Keyboard shortcuts"
+          >
+            Shortcuts
+          </Button>
           <Button variant="secondary" onClick={onCancel} disabled={loading}>
             Cancel
           </Button>
@@ -425,6 +471,7 @@ export const CreateMovementView: React.FC<CreateMovementViewProps> = ({
               <div className="form-group-inline">
                 <label>Type *</label>
                 <Select
+                  ref={typeSelectRef}
                   value={header.movementType}
                   onChange={(e) => {
                     const newType = e.target.value as MovementType;
@@ -434,6 +481,7 @@ export const CreateMovementView: React.FC<CreateMovementViewProps> = ({
                       defaultFromLocationId: newType === MovementType.RECEIPT ? '' : header.defaultFromLocationId,
                       defaultToLocationId: newType === MovementType.ISSUE ? '' : header.defaultToLocationId,
                     });
+                    setTimeout(() => moveFocusToNext('type'), 0);
                   }}
                   style={{ width: '140px' }}
                 >
@@ -454,8 +502,12 @@ export const CreateMovementView: React.FC<CreateMovementViewProps> = ({
                 <div className="form-group-inline">
                   <label>From</label>
                   <Select
+                    ref={fromSelectRef}
                     value={header.defaultFromLocationId}
-                    onChange={(e) => setHeader({ ...header, defaultFromLocationId: e.target.value })}
+                    onChange={(e) => {
+                      setHeader({ ...header, defaultFromLocationId: e.target.value });
+                      moveFocusToNext('from');
+                    }}
                     style={{ width: '180px' }}
                   >
                     <option value="">Select...</option>
@@ -474,8 +526,12 @@ export const CreateMovementView: React.FC<CreateMovementViewProps> = ({
                 <div className="form-group-inline">
                   <label>To</label>
                   <Select
+                    ref={toSelectRef}
                     value={header.defaultToLocationId}
-                    onChange={(e) => setHeader({ ...header, defaultToLocationId: e.target.value })}
+                    onChange={(e) => {
+                      setHeader({ ...header, defaultToLocationId: e.target.value });
+                      moveFocusToNext('to');
+                    }}
                     style={{ width: '180px' }}
                   >
                     <option value="">Select...</option>
@@ -489,11 +545,17 @@ export const CreateMovementView: React.FC<CreateMovementViewProps> = ({
               )}
 
               <div className="form-group-inline">
-                <label>Reason *</label>
+                <label>Reason *{reasonCodes.length === 0 && <span className="label-hint" title="Initialize reason codes in Inventory → Settings"> (none)</span>}</label>
                 <Select
-                  value={header.reasonCode}
-                  onChange={(e) => setHeader({ ...header, reasonCode: e.target.value })}
+                  ref={reasonSelectRef}
+                  value={reasonCodes.some((r) => r.code === header.reasonCode) ? header.reasonCode : ''}
+                  onChange={(e) => {
+                    setHeader({ ...header, reasonCode: e.target.value });
+                    moveFocusToNext('reason');
+                  }}
+                  disabled={reasonLocked}
                   style={{ width: '160px' }}
+                  title={reasonCodes.length === 0 ? 'Initialize reason codes in Inventory → Settings' : undefined}
                 >
                   <option value="">Select...</option>
                   {reasonCodes.map((rc) => (
@@ -571,6 +633,7 @@ export const CreateMovementView: React.FC<CreateMovementViewProps> = ({
         {/* Summary Panel */}
         <div className="create-movement-summary">
           <MovementSummaryPanel
+            ref={summaryPanelRef}
             totalLines={lines.length}
             totalQuantity={totalQuantity}
             errors={errors}
@@ -586,6 +649,39 @@ export const CreateMovementView: React.FC<CreateMovementViewProps> = ({
           />
         </div>
       </div>
+
+      <Modal
+        isOpen={shortcutsModalOpen}
+        onClose={() => setShortcutsModalOpen(false)}
+        title="Keyboard shortcuts"
+        size="md"
+      >
+        <div className="shortcuts-modal-content">
+          <section className="shortcuts-section">
+            <h4>Document</h4>
+            <ul>
+              <li><kbd>Ctrl</kbd>+<kbd>S</kbd> Save as Draft</li>
+              <li><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd> Validate (focus first error)</li>
+              <li><kbd>Ctrl</kbd>+<kbd>Enter</kbd> Submit <span className="shortcut-hint">(when not in grid)</span></li>
+              <li><kbd>Esc</kbd> Close / Cancel</li>
+              <li><kbd>F2</kbd> Cycle through error lines</li>
+            </ul>
+          </section>
+          <section className="shortcuts-section">
+            <h4>Lines (in grid)</h4>
+            <ul>
+              <li><kbd>Tab</kbd> / <kbd>Shift</kbd>+<kbd>Tab</kbd> Next / previous cell</li>
+              <li><kbd>Enter</kbd> Next editable cell in row</li>
+              <li><kbd>↑</kbd> <kbd>↓</kbd> <kbd>←</kbd> <kbd>→</kbd> Move between cells</li>
+              <li><kbd>Ctrl</kbd>+<kbd>D</kbd> Duplicate current line</li>
+              <li><kbd>Ctrl</kbd>+<kbd>Backspace</kbd> Remove current line</li>
+              <li><kbd>Alt</kbd>+<kbd>B</kbd> Open Batch/Serial editor</li>
+              <li><kbd>Alt</kbd>+<kbd>R</kbd> Focus Line Reason</li>
+              <li><kbd>Alt</kbd>+<kbd>S</kbd> Focus Status tooltip</li>
+            </ul>
+          </section>
+        </div>
+      </Modal>
     </div>
   );
 };

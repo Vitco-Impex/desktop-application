@@ -2,7 +2,7 @@
  * Button Component - Minimal, compact UI primitive
  */
 
-import React from 'react';
+import React, { forwardRef } from 'react';
 import './Button.css';
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
@@ -11,14 +11,14 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
   fullWidth?: boolean;
 }
 
-export const Button: React.FC<ButtonProps> = ({
+export const Button = forwardRef<HTMLButtonElement, ButtonProps>(({
   variant = 'secondary',
   size = 'md',
   fullWidth = false,
   className = '',
   children,
   ...props
-}) => {
+}, ref) => {
   const classes = [
     'btn',
     `btn--${variant}`,
@@ -30,9 +30,11 @@ export const Button: React.FC<ButtonProps> = ({
     .join(' ');
 
   return (
-    <button className={classes} {...props}>
+    <button ref={ref} className={classes} {...props}>
       {children}
     </button>
   );
-};
+});
+
+Button.displayName = 'Button';
 

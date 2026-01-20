@@ -121,10 +121,19 @@
   font-style: italic;
 }
 
+/* Blue focus ring: use :focus and :focus-visible so it shows for both
+   keyboard and programmatic focus (e.g. after Tab/arrows). Overrides
+   Input.css outline:none and ensures Select/buttons show the ring. */
+.lines-grid-container input:focus,
 .lines-grid-container input:focus-visible,
+.lines-grid-container select:focus,
 .lines-grid-container select:focus-visible,
+.lines-grid-container button:focus,
 .lines-grid-container button:focus-visible,
-.lines-grid-container .status-cell:focus-visible {
+.lines-grid-container [data-row][data-col]:focus,
+.lines-grid-container [data-row][data-col]:focus-visible,
+.lines-grid-container .status-cell :focus,
+.lines-grid-container .status-cell :focus-visible {
   outline: 2px solid #0066cc;
   outline-offset: 2px;
 }
